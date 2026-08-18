@@ -21,3 +21,11 @@ class DuplicateColumnsError(SmartAnalyticsInvestError):
         self.duplicate_columns = tuple(duplicate_columns)
         columns = ", ".join(self.duplicate_columns)
         super().__init__(f"Duplicate canonical OHLCV columns: {columns}")
+
+
+class EmptyDataError(SmartAnalyticsInvestError):
+    """Raised when no cleaned OHLCV rows remain for analysis."""
+
+
+class DataCleaningError(SmartAnalyticsInvestError):
+    """Raised when OHLCV rows contain invalid required values."""
