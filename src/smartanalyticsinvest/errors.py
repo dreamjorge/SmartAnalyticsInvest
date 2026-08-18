@@ -12,3 +12,12 @@ class MissingColumnsError(SmartAnalyticsInvestError):
         self.missing_columns = tuple(missing_columns)
         columns = ", ".join(self.missing_columns)
         super().__init__(f"Missing required OHLCV columns: {columns}")
+
+
+class DuplicateColumnsError(SmartAnalyticsInvestError):
+    """Raised when source columns collapse to duplicate canonical names."""
+
+    def __init__(self, duplicate_columns: list[str] | tuple[str, ...]):
+        self.duplicate_columns = tuple(duplicate_columns)
+        columns = ", ".join(self.duplicate_columns)
+        super().__init__(f"Duplicate canonical OHLCV columns: {columns}")

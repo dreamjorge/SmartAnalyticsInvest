@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from smartanalyticsinvest.errors import MissingColumnsError
+from smartanalyticsinvest.errors import DuplicateColumnsError, MissingColumnsError
 
 REQUIRED_OHLCV_COLUMNS: tuple[str, ...] = ("date", "open", "high", "low", "close", "volume")
 NUMERIC_OHLCV_COLUMNS: tuple[str, ...] = ("open", "high", "low", "close", "volume")
@@ -28,8 +28,21 @@ def normalize_ohlcv_columns(frame: pd.DataFrame) -> pd.DataFrame:
     whitespace trimming. Broader aliases such as ``Adj Close`` are preserved.
     """
 
+    canonical_columns = [_canonical_column_name(column) for column in frame.columns]
+    seen_standard_columns: set[str] = set()
+    duplicate_standard_columns: list[str] = []
+    for column in canonical_columns:
+        if not isinstance(column, str) or column not in _STANDARD_COLUMN_NAMES:
+            continue
+        if column in seen_standard_columns and column not in duplicate_standard_columns:
+            duplicate_standard_columns.append(column)
+        seen_standard_columns.add(column)
+
+    if duplicate_standard_columns:
+        raise DuplicateColumnsError(duplicate_standard_columns)
+
     normalized = frame.copy()
-    normalized.columns = [_canonical_column_name(column) for column in frame.columns]
+    normalized.columns = canonical_columns
     return normalized
 
 

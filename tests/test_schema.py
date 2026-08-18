@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from smartanalyticsinvest.errors import MissingColumnsError
+from smartanalyticsinvest.errors import DuplicateColumnsError, MissingColumnsError
 from smartanalyticsinvest.schema import (
     NUMERIC_OHLCV_COLUMNS,
     REQUIRED_OHLCV_COLUMNS,
@@ -49,3 +49,13 @@ def test_standard_columns_are_normalized_for_case_and_whitespace_only():
         "volume",
         "Adj Close",
     ]
+
+
+def test_normalization_rejects_duplicate_canonical_ohlcv_columns():
+    frame = pd.DataFrame(columns=["date", "open", "OPEN", "high", "low", "close", "volume"])
+
+    with pytest.raises(DuplicateColumnsError) as excinfo:
+        normalize_ohlcv_columns(frame)
+
+    assert excinfo.value.duplicate_columns == ("open",)
+    assert "open" in str(excinfo.value)
