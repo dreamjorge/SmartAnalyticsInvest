@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import math
+from pathlib import Path
 
 import pandas as pd
 
 from smartanalyticsinvest.errors import DataCleaningError, EmptyDataError
 from smartanalyticsinvest.ingestion import load_ohlcv_csv
-from smartanalyticsinvest.schema import NUMERIC_OHLCV_COLUMNS, REQUIRED_OHLCV_COLUMNS, require_ohlcv_columns
+from smartanalyticsinvest.schema import NUMERIC_OHLCV_COLUMNS, require_ohlcv_columns
 
 _PRICE_COLUMNS = ("open", "high", "low", "close")
 _TICKER_COLUMN = "ticker"
@@ -102,7 +102,7 @@ def _add_grouped_sma(
     grouped_prices = enriched.groupby(_TICKER_COLUMN, sort=False)[price_column]
     for window in windows:
         enriched[f"sma_{window}"] = grouped_prices.transform(
-            lambda series: simple_moving_average(series, window)
+            lambda series, window=window: simple_moving_average(series, window)
         )
     return enriched
 
@@ -126,7 +126,7 @@ def _add_grouped_ema(
     grouped_prices = enriched.groupby(_TICKER_COLUMN, sort=False)[price_column]
     for window in windows:
         enriched[f"ema_{window}"] = grouped_prices.transform(
-            lambda series: exponential_moving_average(series, window)
+            lambda series, window=window: exponential_moving_average(series, window)
         )
     return enriched
 
