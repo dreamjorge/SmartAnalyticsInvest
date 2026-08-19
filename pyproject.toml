@@ -17,5 +17,8 @@ dev = [
     "pytest",
 ]
 
+[project.scripts]
+smartanalyticsinvest = "smartanalyticsinvest.cli:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
