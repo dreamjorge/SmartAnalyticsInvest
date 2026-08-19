@@ -1,0 +1,79 @@
+import sys
+from types import SimpleNamespace
+
+import pandas as pd
+import pytest
+
+from smartanalyticsinvest.errors import DataSourceError
+from smartanalyticsinvest.pipeline import clean_ohlcv
+
+
+def test_fetch_yahoo_ohlcv_normalizes_columns_and_ticker(monkeypatch):
+    captured = {}
+
+    def download(symbol, **kwargs):
+        captured["symbol"] = symbol
+        captured["kwargs"] = kwargs
+        return pd.DataFrame(
+            {
+                "Open": [100.0, 101.0],
+                "High": [110.0, 111.0],
+                "Low": [95.0, 96.0],
+                "Close": [105.0, 106.0],
+                "Volume": [1000, 1100],
+                "Adj Close": [104.5, 105.5],
+            },
+            index=pd.to_datetime(["2024-01-02", "2024-01-03"]),
+        )
+
+    monkeypatch.setitem(sys.modules, "yfinance", SimpleNamespace(download=download))
+
+    from smartanalyticsinvest.data_sources import fetch_yahoo_ohlcv
+
+    result = fetch_yahoo_ohlcv("MSFT", start="2024-01-01", end="2024-01-31")
+
+    assert captured == {
+        "symbol": "MSFT",
+        "kwargs": {
+            "start": "2024-01-01",
+            "end": "2024-01-31",
+            "period": "1mo",
+            "interval": "1d",
+            "progress": False,
+        },
+    }
+    assert list(result.columns) == ["date", "open", "high", "low", "close", "volume", "ticker"]
+    assert result["ticker"].tolist() == ["MSFT", "MSFT"]
+    assert result["date"].tolist() == list(pd.to_datetime(["2024-01-02", "2024-01-03"]))
+    assert clean_ohlcv(result).shape == (2, 7)
+
+
+def test_fetch_yahoo_ohlcv_missing_optional_dependency_has_install_guidance(monkeypatch):
+    monkeypatch.setitem(sys.modules, "yfinance", None)
+
+    from smartanalyticsinvest.data_sources import fetch_yahoo_ohlcv
+
+    with pytest.raises(DataSourceError, match=r"pip install -e '\.\[market-data\]'"):
+        fetch_yahoo_ohlcv("MSFT")
+
+
+@pytest.mark.parametrize(
+    "downloaded, match",
+    [
+        (pd.DataFrame(), "No OHLCV data returned"),
+        (
+            pd.DataFrame(
+                {"Open": [100.0], "High": [110.0], "Low": [95.0], "Volume": [1000]},
+                index=pd.to_datetime(["2024-01-02"]),
+            ),
+            "Missing required OHLCV columns: close",
+        ),
+    ],
+)
+def test_fetch_yahoo_ohlcv_fails_for_empty_or_malformed_data(monkeypatch, downloaded, match):
+    monkeypatch.setitem(sys.modules, "yfinance", SimpleNamespace(download=lambda *args, **kwargs: downloaded))
+
+    from smartanalyticsinvest.data_sources import fetch_yahoo_ohlcv
+
+    with pytest.raises(DataSourceError, match=match):
+        fetch_yahoo_ohlcv("MSFT")
