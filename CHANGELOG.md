@@ -2,6 +2,13 @@
 
 All notable changes to SmartAnalyticsInvest will be documented in this file.
 
+## 0.1.1 - 2026-08-19
+
+Patch release for source distribution completeness.
+
+- Added `MANIFEST.in` so source distributions include `CHANGELOG.md`, `LICENSE`, `README.md`, tests, fixtures, and examples.
+- Verified packaged metadata tests from an unpacked source distribution.
+
 ## 0.1.0 - 2026-08-19
 
 Initial release preparation for the local-first OHLCV analytics toolkit.
