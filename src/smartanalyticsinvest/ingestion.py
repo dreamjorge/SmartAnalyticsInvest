@@ -13,7 +13,7 @@ def load_ohlcv_csv(path: str | Path) -> pd.DataFrame:
     """Load a local OHLCV CSV file and validate its required columns."""
 
     csv_path = Path(path)
-    frame = pd.read_csv(csv_path)
+    frame = pd.read_csv(csv_path, dtype={"ticker": "string"})
     normalized = normalize_ohlcv_columns(frame)
     require_ohlcv_columns(normalized)
     return normalized
