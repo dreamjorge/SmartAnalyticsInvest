@@ -74,6 +74,17 @@ def clean_ohlcv(frame: pd.DataFrame) -> pd.DataFrame:
         rows = ", ".join(str(index) for index in cleaned.index[invalid_mask].tolist())
         raise DataCleaningError(f"Found invalid required OHLCV values in rows: {rows}")
 
+    inconsistent_mask = (
+        cleaned["high"].lt(cleaned["low"])
+        | cleaned["high"].lt(cleaned["open"])
+        | cleaned["high"].lt(cleaned["close"])
+        | cleaned["low"].gt(cleaned["open"])
+        | cleaned["low"].gt(cleaned["close"])
+    )
+    if bool(inconsistent_mask.any()):
+        rows = ", ".join(str(index) for index in cleaned.index[inconsistent_mask].tolist())
+        raise DataCleaningError(f"Found inconsistent OHLCV values in rows: {rows}")
+
     if _has_ticker_column(cleaned):
         cleaned = _normalize_ticker_values(cleaned)
 
