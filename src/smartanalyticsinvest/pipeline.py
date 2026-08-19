@@ -106,26 +106,74 @@ def _add_grouped_rsi(frame: pd.DataFrame, *, price_column: str = "close", window
     return enriched
 
 
+def _add_grouped_ema(
+    frame: pd.DataFrame, *, price_column: str = "close", windows: tuple[int, ...] = (20,)
+) -> pd.DataFrame:
+    from smartanalyticsinvest.indicators import exponential_moving_average
+
+    enriched = frame.copy()
+    grouped_prices = enriched.groupby(_TICKER_COLUMN, sort=False)[price_column]
+    for window in windows:
+        enriched[f"ema_{window}"] = grouped_prices.transform(
+            lambda series: exponential_moving_average(series, window)
+        )
+    return enriched
+
+
+def _add_grouped_daily_returns(frame: pd.DataFrame, *, price_column: str = "close") -> pd.DataFrame:
+    from smartanalyticsinvest.indicators import daily_returns
+
+    enriched = frame.copy()
+    enriched["daily_return"] = enriched.groupby(_TICKER_COLUMN, sort=False)[price_column].transform(
+        daily_returns
+    )
+    return enriched
+
+
 def enrich_ohlcv(
-    frame: pd.DataFrame, *, sma_windows: tuple[int, ...] = (20,), rsi_window: int = 14
+    frame: pd.DataFrame,
+    *,
+    sma_windows: tuple[int, ...] = (20,),
+    rsi_window: int = 14,
+    ema_windows: tuple[int, ...] = (),
+    include_daily_returns: bool = False,
 ) -> pd.DataFrame:
     """Return cleaned OHLCV rows enriched with configured indicators."""
 
     if _has_ticker_column(frame):
         enriched = _add_grouped_sma(frame, windows=sma_windows)
-        return _add_grouped_rsi(enriched, window=rsi_window)
+        enriched = _add_grouped_rsi(enriched, window=rsi_window)
+        enriched = _add_grouped_ema(enriched, windows=ema_windows)
+        if include_daily_returns:
+            enriched = _add_grouped_daily_returns(enriched)
+        return enriched
 
-    from smartanalyticsinvest.indicators import add_rsi, add_sma
+    from smartanalyticsinvest.indicators import add_daily_returns, add_ema, add_rsi, add_sma
 
     enriched = add_sma(frame, windows=sma_windows)
-    return add_rsi(enriched, window=rsi_window)
+    enriched = add_rsi(enriched, window=rsi_window)
+    enriched = add_ema(enriched, windows=ema_windows)
+    if include_daily_returns:
+        enriched = add_daily_returns(enriched)
+    return enriched
 
 
 def run_csv_pipeline(
-    input_path: str | Path, *, sma_windows: tuple[int, ...] = (20,), rsi_window: int = 14
+    input_path: str | Path,
+    *,
+    sma_windows: tuple[int, ...] = (20,),
+    rsi_window: int = 14,
+    ema_windows: tuple[int, ...] = (),
+    include_daily_returns: bool = False,
 ) -> pd.DataFrame:
     """Load, clean, and enrich a local OHLCV CSV file."""
 
     loaded = load_ohlcv_csv(input_path)
     cleaned = clean_ohlcv(loaded)
-    return enrich_ohlcv(cleaned, sma_windows=sma_windows, rsi_window=rsi_window)
+    return enrich_ohlcv(
+        cleaned,
+        sma_windows=sma_windows,
+        rsi_window=rsi_window,
+        ema_windows=ema_windows,
+        include_daily_returns=include_daily_returns,
+    )

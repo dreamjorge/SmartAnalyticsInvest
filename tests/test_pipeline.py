@@ -29,6 +29,46 @@ def test_run_csv_pipeline_returns_clean_sorted_rows_with_sma_and_rsi(tmp_path):
     assert result.loc[2, "rsi_2"] == 100.0
 
 
+def test_run_csv_pipeline_preserves_default_indicator_columns(tmp_path):
+    input_csv = tmp_path / "ohlcv.csv"
+    pd.DataFrame(
+        [
+            ["2024-01-01", 10, 11, 9, 10, 100],
+            ["2024-01-02", 12, 13, 11, 12, 200],
+        ],
+        columns=REQUIRED_OHLCV_COLUMNS,
+    ).to_csv(input_csv, index=False)
+
+    result = run_csv_pipeline(input_csv)
+
+    assert list(result.columns) == [*REQUIRED_OHLCV_COLUMNS, "sma_20", "rsi_14"]
+
+
+def test_run_csv_pipeline_optionally_adds_ema_and_daily_returns(tmp_path):
+    input_csv = tmp_path / "ohlcv.csv"
+    pd.DataFrame(
+        [
+            ["2024-01-01", 10, 11, 9, 10, 100],
+            ["2024-01-02", 12, 13, 11, 12, 200],
+            ["2024-01-03", 14, 15, 13, 14, 300],
+        ],
+        columns=REQUIRED_OHLCV_COLUMNS,
+    ).to_csv(input_csv, index=False)
+
+    result = run_csv_pipeline(
+        input_csv,
+        sma_windows=(2,),
+        rsi_window=2,
+        ema_windows=(2,),
+        include_daily_returns=True,
+    )
+
+    assert list(result.columns) == [*REQUIRED_OHLCV_COLUMNS, "sma_2", "rsi_2", "ema_2", "daily_return"]
+    assert result["ema_2"].tolist() == pytest.approx([10.0, 11.333333, 13.111111], rel=1e-6)
+    assert pd.isna(result.loc[0, "daily_return"])
+    assert result.loc[1, "daily_return"] == pytest.approx(0.2)
+
+
 def test_run_csv_pipeline_stops_on_cleaning_validation_failure(tmp_path):
     input_csv = tmp_path / "bad.csv"
     pd.DataFrame(
@@ -60,6 +100,38 @@ def test_enrich_ohlcv_groups_sma_by_ticker_without_multiindex():
     assert result.loc[1, "sma_2"] == 101.0
     assert pd.isna(result.loc[2, "sma_2"])
     assert result.loc[3, "sma_2"] == 11.0
+
+
+def test_enrich_ohlcv_groups_ema_and_daily_returns_by_ticker():
+    cleaned = clean_ohlcv(
+        pd.DataFrame(
+            [
+                ["2024-01-01", 100, 101, 99, 100, 100, "B"],
+                ["2024-01-02", 110, 111, 109, 110, 100, "B"],
+                ["2024-01-01", 10, 11, 9, 10, 100, "A"],
+                ["2024-01-02", 12, 13, 11, 12, 100, "A"],
+            ],
+            columns=[*REQUIRED_OHLCV_COLUMNS, "ticker"],
+        )
+    )
+
+    result = enrich_ohlcv(
+        cleaned,
+        sma_windows=(2,),
+        rsi_window=2,
+        ema_windows=(2,),
+        include_daily_returns=True,
+    )
+
+    assert result["ticker"].tolist() == ["A", "A", "B", "B"]
+    assert result.loc[0, "ema_2"] == 10.0
+    assert result.loc[1, "ema_2"] == pytest.approx(11.333333, rel=1e-6)
+    assert result.loc[2, "ema_2"] == 100.0
+    assert result.loc[3, "ema_2"] == pytest.approx(106.666667, rel=1e-6)
+    assert pd.isna(result.loc[0, "daily_return"])
+    assert result.loc[1, "daily_return"] == pytest.approx(0.2)
+    assert pd.isna(result.loc[2, "daily_return"])
+    assert result.loc[3, "daily_return"] == pytest.approx(0.1)
 
 
 def test_enrich_ohlcv_groups_rsi_diff_by_ticker():

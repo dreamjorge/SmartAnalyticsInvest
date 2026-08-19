@@ -32,7 +32,25 @@ Extra columns may be present, but the MVP requires the six columns above for pro
 
 ### Optional ticker column
 
-CSV files may include an optional lowercase `ticker` column for multiple instruments. When present, ticker values are trimmed, must be non-empty, and rows are sorted/deduplicated by `ticker` and `date`. SMA and RSI windows are calculated independently per ticker so indicator values do not cross instrument boundaries.
+CSV files may include an optional lowercase `ticker` column for multiple instruments. When present, ticker values are trimmed, must be non-empty, and rows are sorted/deduplicated by `ticker` and `date`. SMA, RSI, EMA, and daily returns are calculated independently per ticker so indicator values do not cross instrument boundaries.
+
+## Pipeline API indicators
+
+The pipeline defaults remain SMA and RSI only. Python callers can opt into EMA windows and daily percentage returns:
+
+```python
+from smartanalyticsinvest.pipeline import run_csv_pipeline
+
+result = run_csv_pipeline(
+    "input.csv",
+    sma_windows=(20,),
+    rsi_window=14,
+    ema_windows=(12, 26),
+    include_daily_returns=True,
+)
+```
+
+This adds columns such as `ema_12`, `ema_26`, and `daily_return`; the first daily return in each series is missing.
 
 ## CLI usage
 
