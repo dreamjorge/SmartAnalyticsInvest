@@ -44,6 +44,27 @@ def test_daily_returns_uses_percentage_change_with_missing_first_row():
     assert returns.iloc[1:].tolist() == pytest.approx([0.2, -0.25])
 
 
+def test_daily_returns_does_not_fill_missing_prices():
+    returns = daily_returns(pd.Series([10.0, None, 12.0]))
+
+    assert returns.isna().tolist() == [True, True, True]
+
+
+def test_daily_returns_passes_no_fill_method_explicitly(monkeypatch):
+    calls = []
+    original_pct_change = pd.Series.pct_change
+
+    def spy_pct_change(self, *args, **kwargs):
+        calls.append(kwargs)
+        return original_pct_change(self, *args, **kwargs)
+
+    monkeypatch.setattr(pd.Series, "pct_change", spy_pct_change)
+
+    daily_returns(pd.Series([10.0, None, 12.0]))
+
+    assert calls == [{"fill_method": None}]
+
+
 def test_add_ema_and_daily_returns_create_columns_without_mutating_input():
     frame = pd.DataFrame({"close": [10.0, 12.0, 14.0]})
     original = frame.copy(deep=True)

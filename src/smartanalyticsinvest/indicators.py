@@ -28,7 +28,7 @@ def exponential_moving_average(series: pd.Series, window: int) -> pd.Series:
 def daily_returns(series: pd.Series) -> pd.Series:
     """Return daily percentage returns with the first row left missing."""
 
-    return series.pct_change()
+    return series.pct_change(fill_method=None)
 
 
 def relative_strength_index(series: pd.Series, window: int = 14) -> pd.Series:
