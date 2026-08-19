@@ -34,3 +34,16 @@ def test_load_ohlcv_csv_rejects_csv_missing_required_columns(tmp_path):
 
     with pytest.raises(MissingColumnsError):
         load_ohlcv_csv(bad_csv)
+
+
+def test_load_ohlcv_csv_preserves_numeric_looking_ticker_text(tmp_path):
+    csv_path = tmp_path / "numeric_tickers.csv"
+    csv_path.write_text(
+        "date,open,high,low,close,volume,ticker\n"
+        "2024-01-01,10,11,9,10.5,100,001\n"
+        "2024-01-01,20,21,19,20.5,200,1\n"
+    )
+
+    frame = load_ohlcv_csv(csv_path)
+
+    assert frame["ticker"].tolist() == ["001", "1"]

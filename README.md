@@ -30,6 +30,10 @@ date, open, high, low, close, volume
 
 Extra columns may be present, but the MVP requires the six columns above for processing.
 
+### Optional ticker column
+
+CSV files may include an optional lowercase `ticker` column for multiple instruments. When present, ticker values are trimmed, must be non-empty, and rows are sorted/deduplicated by `ticker` and `date`. SMA and RSI windows are calculated independently per ticker so indicator values do not cross instrument boundaries.
+
 ## CLI usage
 
 Run the local CSV pipeline and write an enriched CSV:

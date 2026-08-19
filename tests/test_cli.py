@@ -30,6 +30,30 @@ def test_cli_main_writes_enriched_csv_with_success_summary(tmp_path, capsys):
     assert written.loc[14, "rsi_14"] == 100.0
 
 
+def test_cli_main_writes_ticker_aware_csv_without_new_option(tmp_path, capsys):
+    input_csv = tmp_path / "multi.csv"
+    output_csv = tmp_path / "out.csv"
+    pd.DataFrame(
+        [
+            ["2024-01-02", 12, 13, 11, 12, 200, " MSFT"],
+            ["2024-01-01", 10, 11, 9, 10, 100, "AAPL "],
+            ["2024-01-02", 14, 15, 13, 14, 300, "AAPL"],
+        ],
+        columns=[*REQUIRED_OHLCV_COLUMNS, "ticker"],
+    ).to_csv(input_csv, index=False)
+
+    exit_code = main([str(input_csv), "--output", str(output_csv), "--sma-window", "2"])
+
+    captured = capsys.readouterr()
+    written = pd.read_csv(output_csv)
+    assert exit_code == 0
+    assert "Wrote 3 rows" in captured.out
+    assert [*REQUIRED_OHLCV_COLUMNS, "ticker", "sma_2", "rsi_14"] == list(written.columns)
+    assert written["ticker"].tolist() == ["AAPL", "AAPL", "MSFT"]
+    assert written.loc[1, "sma_2"] == 12.0
+    assert pd.isna(written.loc[2, "sma_2"])
+
+
 def test_cli_main_reports_missing_input_without_traceback(tmp_path, capsys):
     missing_csv = tmp_path / "missing.csv"
     output_csv = tmp_path / "out.csv"

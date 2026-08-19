@@ -12,11 +12,46 @@ from smartanalyticsinvest.ingestion import load_ohlcv_csv
 from smartanalyticsinvest.schema import NUMERIC_OHLCV_COLUMNS, REQUIRED_OHLCV_COLUMNS, require_ohlcv_columns
 
 _PRICE_COLUMNS = ("open", "high", "low", "close")
+_TICKER_COLUMN = "ticker"
 
 
 def _raise_if_empty(frame: pd.DataFrame) -> None:
     if frame.empty:
         raise EmptyDataError("No OHLCV rows available after cleaning")
+
+
+def _has_ticker_column(frame: pd.DataFrame) -> bool:
+    return _TICKER_COLUMN in frame.columns
+
+
+def _normalize_ticker_values(frame: pd.DataFrame) -> pd.DataFrame:
+    null_mask = frame[_TICKER_COLUMN].isna()
+    if bool(null_mask.any()):
+        rows = ", ".join(str(index) for index in frame.index[null_mask].tolist())
+        raise DataCleaningError(f"Found invalid ticker values in rows: {rows}")
+
+    normalized = frame[_TICKER_COLUMN].astype(str).str.strip()
+    empty_mask = normalized.eq("")
+    if bool(empty_mask.any()):
+        rows = ", ".join(str(index) for index in frame.index[empty_mask].tolist())
+        raise DataCleaningError(f"Found invalid ticker values in rows: {rows}")
+
+    frame[_TICKER_COLUMN] = normalized
+    return frame
+
+
+def _clean_sort_and_deduplicate(cleaned: pd.DataFrame) -> pd.DataFrame:
+    if _has_ticker_column(cleaned):
+        return (
+            cleaned.sort_values([_TICKER_COLUMN, "date"], kind="mergesort")
+            .drop_duplicates(subset=[_TICKER_COLUMN, "date"], keep="last")
+            .reset_index(drop=True)
+        )
+    return (
+        cleaned.sort_values("date", kind="mergesort")
+        .drop_duplicates(subset="date", keep="last")
+        .reset_index(drop=True)
+    )
 
 
 def clean_ohlcv(frame: pd.DataFrame) -> pd.DataFrame:
@@ -39,22 +74,46 @@ def clean_ohlcv(frame: pd.DataFrame) -> pd.DataFrame:
         rows = ", ".join(str(index) for index in cleaned.index[invalid_mask].tolist())
         raise DataCleaningError(f"Found invalid required OHLCV values in rows: {rows}")
 
-    if "ticker" in cleaned.columns and cleaned["ticker"].dropna().nunique() > 1:
-        raise DataCleaningError("Found multiple instruments in OHLCV frame; split by ticker first")
+    if _has_ticker_column(cleaned):
+        cleaned = _normalize_ticker_values(cleaned)
 
-    result = (
-        cleaned.sort_values("date", kind="mergesort")
-        .drop_duplicates(subset="date", keep="last")
-        .reset_index(drop=True)
-    )
+    result = _clean_sort_and_deduplicate(cleaned)
     _raise_if_empty(result)
     return result
+
+
+def _add_grouped_sma(
+    frame: pd.DataFrame, *, price_column: str = "close", windows: tuple[int, ...] = (20,)
+) -> pd.DataFrame:
+    from smartanalyticsinvest.indicators import simple_moving_average
+
+    enriched = frame.copy()
+    grouped_prices = enriched.groupby(_TICKER_COLUMN, sort=False)[price_column]
+    for window in windows:
+        enriched[f"sma_{window}"] = grouped_prices.transform(
+            lambda series: simple_moving_average(series, window)
+        )
+    return enriched
+
+
+def _add_grouped_rsi(frame: pd.DataFrame, *, price_column: str = "close", window: int = 14) -> pd.DataFrame:
+    from smartanalyticsinvest.indicators import relative_strength_index
+
+    enriched = frame.copy()
+    enriched[f"rsi_{window}"] = enriched.groupby(_TICKER_COLUMN, sort=False)[price_column].transform(
+        lambda series: relative_strength_index(series, window)
+    )
+    return enriched
 
 
 def enrich_ohlcv(
     frame: pd.DataFrame, *, sma_windows: tuple[int, ...] = (20,), rsi_window: int = 14
 ) -> pd.DataFrame:
     """Return cleaned OHLCV rows enriched with configured indicators."""
+
+    if _has_ticker_column(frame):
+        enriched = _add_grouped_sma(frame, windows=sma_windows)
+        return _add_grouped_rsi(enriched, window=rsi_window)
 
     from smartanalyticsinvest.indicators import add_rsi, add_sma
 
