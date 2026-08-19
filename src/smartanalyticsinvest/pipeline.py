@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import math
 
 import pandas as pd
 
@@ -30,11 +31,16 @@ def clean_ohlcv(frame: pd.DataFrame) -> pd.DataFrame:
         cleaned[column] = pd.to_numeric(cleaned[column], errors="coerce")
 
     invalid_mask = cleaned[["date", *NUMERIC_OHLCV_COLUMNS]].isna().any(axis=1)
+    finite_mask = cleaned[list(NUMERIC_OHLCV_COLUMNS)].map(math.isfinite).all(axis=1)
+    invalid_mask |= ~finite_mask
     invalid_mask |= cleaned[list(_PRICE_COLUMNS)].le(0).any(axis=1)
     invalid_mask |= cleaned["volume"].lt(0)
     if bool(invalid_mask.any()):
         rows = ", ".join(str(index) for index in cleaned.index[invalid_mask].tolist())
         raise DataCleaningError(f"Found invalid required OHLCV values in rows: {rows}")
+
+    if "ticker" in cleaned.columns and cleaned["ticker"].dropna().nunique() > 1:
+        raise DataCleaningError("Found multiple instruments in OHLCV frame; split by ticker first")
 
     result = (
         cleaned.sort_values("date", kind="mergesort")

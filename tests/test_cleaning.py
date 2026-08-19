@@ -37,6 +37,8 @@ def test_clean_ohlcv_parses_dates_sorts_coerces_numbers_and_keeps_last_duplicate
         ["2024-01-01", 0, 11, 9, 10.5, 100],
         ["2024-01-01", 10, -1, 9, 10.5, 100],
         ["2024-01-01", 10, 11, 9, 10.5, -1],
+        ["2024-01-01", float("inf"), 11, 9, 10.5, 100],
+        ["2024-01-01", 10, 11, 9, "Infinity", 100],
     ],
 )
 def test_clean_ohlcv_fails_fast_for_invalid_required_values_by_default(bad_row):
@@ -82,4 +84,17 @@ def test_clean_ohlcv_rejects_invalid_rows_before_dropping_from_messy_fixture():
     )
 
     with pytest.raises(DataCleaningError, match="invalid required"):
+        clean_ohlcv(source)
+
+
+def test_clean_ohlcv_rejects_multi_instrument_ticker_frames():
+    source = pd.DataFrame(
+        [
+            ["2024-01-01", 10, 11, 9, 10.5, 100, "AAPL"],
+            ["2024-01-01", 20, 21, 19, 20.5, 200, "MSFT"],
+        ],
+        columns=[*REQUIRED_OHLCV_COLUMNS, "ticker"],
+    )
+
+    with pytest.raises(DataCleaningError, match="multiple instruments"):
         clean_ohlcv(source)
