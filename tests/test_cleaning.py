@@ -87,14 +87,82 @@ def test_clean_ohlcv_rejects_invalid_rows_before_dropping_from_messy_fixture():
         clean_ohlcv(source)
 
 
-def test_clean_ohlcv_rejects_multi_instrument_ticker_frames():
+def test_clean_ohlcv_without_ticker_preserves_extra_columns_and_does_not_add_ticker():
     source = pd.DataFrame(
         [
+            ["2024-01-02", 12, 13, 11, 12.5, 200, "old"],
+            ["2024-01-01", 10, 11, 9, 10.5, 100, "first"],
+            ["2024-01-02", 14, 15, 13, 14.5, 250, "last"],
+        ],
+        columns=[*REQUIRED_OHLCV_COLUMNS, "note"],
+    )
+
+    cleaned = clean_ohlcv(source)
+
+    assert "ticker" not in cleaned.columns
+    assert cleaned["date"].tolist() == [pd.Timestamp("2024-01-01"), pd.Timestamp("2024-01-02")]
+    assert cleaned["note"].tolist() == ["first", "last"]
+
+
+def test_clean_ohlcv_accepts_trims_sorts_and_preserves_multiple_tickers():
+    source = pd.DataFrame(
+        [
+            ["2024-01-02", 20, 21, 19, 20.5, 200, " MSFT "],
             ["2024-01-01", 10, 11, 9, 10.5, 100, "AAPL"],
-            ["2024-01-01", 20, 21, 19, 20.5, 200, "MSFT"],
+            ["2024-01-01", 21, 22, 20, 21.5, 210, " MSFT"],
         ],
         columns=[*REQUIRED_OHLCV_COLUMNS, "ticker"],
     )
 
-    with pytest.raises(DataCleaningError, match="multiple instruments"):
+    cleaned = clean_ohlcv(source)
+
+    assert cleaned["ticker"].tolist() == ["AAPL", "MSFT", "MSFT"]
+    assert cleaned["date"].tolist() == [
+        pd.Timestamp("2024-01-01"),
+        pd.Timestamp("2024-01-01"),
+        pd.Timestamp("2024-01-02"),
+    ]
+
+
+@pytest.mark.parametrize("bad_ticker", [None, pd.NA, float("nan"), "", "   "])
+def test_clean_ohlcv_rejects_null_empty_and_whitespace_tickers(bad_ticker):
+    source = pd.DataFrame(
+        [["2024-01-01", 10, 11, 9, 10.5, 100, bad_ticker]],
+        columns=[*REQUIRED_OHLCV_COLUMNS, "ticker"],
+    )
+
+    with pytest.raises(DataCleaningError, match="ticker"):
         clean_ohlcv(source)
+
+
+def test_clean_ohlcv_rejects_mixed_valid_and_invalid_tickers():
+    source = pd.DataFrame(
+        [
+            ["2024-01-01", 10, 11, 9, 10.5, 100, "AAPL"],
+            ["2024-01-02", 20, 21, 19, 20.5, 200, " "],
+        ],
+        columns=[*REQUIRED_OHLCV_COLUMNS, "ticker"],
+    )
+
+    with pytest.raises(DataCleaningError, match="ticker"):
+        clean_ohlcv(source)
+
+
+def test_clean_ohlcv_deduplicates_by_ticker_and_date_preserving_extra_columns():
+    source = pd.DataFrame(
+        [
+            ["2024-01-01", 10, 11, 9, 10.5, 100, "MSFT", "keep-msft"],
+            ["2024-01-01", 20, 21, 19, 20.5, 200, " AAPL", "old-aapl"],
+            ["2024-01-01", 22, 23, 21, 22.5, 220, "AAPL ", "new-aapl"],
+            ["2024-01-02", 24, 25, 23, 24.5, 240, "AAPL", "next-aapl"],
+        ],
+        columns=[*REQUIRED_OHLCV_COLUMNS, "ticker", "note"],
+    )
+
+    cleaned = clean_ohlcv(source)
+
+    assert cleaned[["ticker", "date", "close", "note"]].to_dict("records") == [
+        {"ticker": "AAPL", "date": pd.Timestamp("2024-01-01"), "close": 22.5, "note": "new-aapl"},
+        {"ticker": "AAPL", "date": pd.Timestamp("2024-01-02"), "close": 24.5, "note": "next-aapl"},
+        {"ticker": "MSFT", "date": pd.Timestamp("2024-01-01"), "close": 10.5, "note": "keep-msft"},
+    ]
