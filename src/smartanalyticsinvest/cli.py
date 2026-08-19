@@ -47,7 +47,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 
-    result.to_csv(output_path, index=False)
+    try:
+        result.to_csv(output_path, index=False)
+    except OSError as exc:
+        print(f"Error: could not write output file: {output_path}: {exc}", file=sys.stderr)
+        return 1
+
     print(f"Wrote {len(result)} rows to {output_path}")
     return 0
 

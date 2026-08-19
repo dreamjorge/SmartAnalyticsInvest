@@ -91,3 +91,19 @@ def test_cli_main_reports_omitted_output_option_without_traceback(tmp_path, caps
     assert "--output" in captured.err
     assert "traceback" not in captured.err.lower()
     assert captured.out == ""
+
+
+def test_cli_main_reports_output_write_failure_without_traceback(tmp_path, capsys):
+    input_csv = tmp_path / "input.csv"
+    output_csv = tmp_path / "missing-parent" / "out.csv"
+    _write_valid_csv(input_csv)
+
+    exit_code = main([str(input_csv), "--output", str(output_csv)])
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "error:" in captured.err.lower()
+    assert "could not write output file" in captured.err.lower()
+    assert str(output_csv) in captured.err
+    assert "traceback" not in captured.err.lower()
+    assert captured.out == ""
