@@ -25,11 +25,9 @@ def _import_yfinance() -> Any:
 
 def _canonical_yahoo_column(column: object) -> str | None:
     if isinstance(column, tuple):
-        for part in column:
-            canonical = _canonical_yahoo_column(part)
-            if canonical is not None:
-                return canonical
-        return None
+        if not column:
+            return None
+        return _canonical_yahoo_column(column[0])
 
     if not isinstance(column, str):
         return None
