@@ -1,19 +1,47 @@
 # SmartAnalyticsInvest
 
-## Project Overview
-SmartAnalyticsInvest is a comprehensive investment and trading platform designed to provide deep insights and accurate predictions for stock market trends. Utilizing advanced technical analysis, machine learning models, and thorough risk assessments, SmartAnalyticsInvest empowers users to make informed trading decisions.
+SmartAnalyticsInvest MVP is a deterministic, local CSV analytics package for OHLCV market data. It loads a local CSV file, validates and cleans the required columns, calculates SMA and RSI indicators, and writes an enriched CSV from a minimal CLI.
 
-## Features
-- **Data Collection**: Automated scripts to fetch and process stock market data from various sources.
-- **Technical Analysis**: Tools to calculate technical indicators and identify chart patterns.
-- **Trend Analysis**: Methods to analyze and compare market trends across different stocks and sectors.
-- **Machine Learning Models**: Predictive models to forecast stock prices using cutting-edge ML techniques.
-- **Risk Assessment**: Evaluate and manage risk factors associated with stock predictions.
-- **Development and Analysis**: Sections dedicated to the development process and detailed analysis of prediction algorithms.
+This MVP does not implement machine-learning predictions, trading recommendations, dashboards, web UI, live network data fetching, or portfolio/risk engines.
 
-## Getting Started
-To get started with SmartAnalyticsInvest, follow these steps:
+## Setup
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/yourusername/SmartAnalyticsInvest.git
+Use Python 3.12 or newer. From the repository root, install the package with development dependencies:
+
+```bash
+python3 -m pip install -e '.[dev]'
+```
+
+## Run tests
+
+```bash
+python3 -m pytest
+```
+
+The test suite is offline and uses local deterministic fixtures only.
+
+## Input CSV schema
+
+Your input CSV must include these exact OHLCV columns:
+
+```text
+date, open, high, low, close, volume
+```
+
+Extra columns may be present, but the MVP requires the six columns above for processing.
+
+## CLI usage
+
+Run the local CSV pipeline and write an enriched CSV:
+
+```bash
+smartanalyticsinvest input.csv --output enriched.csv --sma-window 20 --rsi-window 14
+```
+
+You can also run the module directly:
+
+```bash
+python3 -m smartanalyticsinvest.cli input.csv --output enriched.csv
+```
+
+The output CSV contains the required OHLCV columns plus indicator columns such as `sma_20` and `rsi_14`.
