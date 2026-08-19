@@ -4,7 +4,6 @@ import pandas as pd
 
 from smartanalyticsinvest.cli import main
 
-
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 
 

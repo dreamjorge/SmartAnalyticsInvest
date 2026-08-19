@@ -7,7 +7,6 @@ from smartanalyticsinvest.errors import MissingColumnsError
 from smartanalyticsinvest.ingestion import load_ohlcv_csv
 from smartanalyticsinvest.schema import REQUIRED_OHLCV_COLUMNS
 
-
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
