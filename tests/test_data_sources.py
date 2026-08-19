@@ -48,6 +48,30 @@ def test_fetch_yahoo_ohlcv_normalizes_columns_and_ticker(monkeypatch):
     assert clean_ohlcv(result).shape == (2, 7)
 
 
+def test_fetch_yahoo_ohlcv_uses_only_price_field_level_for_multiindex_columns(monkeypatch):
+    index = pd.to_datetime(["2024-01-02"])
+    columns = pd.MultiIndex.from_tuples(
+        [
+            ("Adj Close", "OPEN"),
+            ("Open", "OPEN"),
+            ("High", "OPEN"),
+            ("Low", "OPEN"),
+            ("Close", "OPEN"),
+            ("Volume", "OPEN"),
+        ]
+    )
+    downloaded = pd.DataFrame([[999.0, 100.0, 110.0, 95.0, 105.0, 1000]], index=index, columns=columns)
+    monkeypatch.setitem(sys.modules, "yfinance", SimpleNamespace(download=lambda *args, **kwargs: downloaded))
+
+    from smartanalyticsinvest.data_sources import fetch_yahoo_ohlcv
+
+    result = fetch_yahoo_ohlcv("OPEN")
+
+    assert result.loc[0, "open"] == 100.0
+    assert result.loc[0, "close"] == 105.0
+    assert result.loc[0, "ticker"] == "OPEN"
+
+
 def test_fetch_yahoo_ohlcv_missing_optional_dependency_has_install_guidance(monkeypatch):
     monkeypatch.setitem(sys.modules, "yfinance", None)
 
