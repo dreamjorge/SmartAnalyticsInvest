@@ -45,3 +45,22 @@ python3 -m smartanalyticsinvest.cli input.csv --output enriched.csv
 ```
 
 The output CSV contains the required OHLCV columns plus indicator columns such as `sma_20` and `rsi_14`.
+
+## Smoke example
+
+The repository includes a tiny deterministic sample CSV:
+
+```bash
+python3 -m smartanalyticsinvest.cli examples/sample_ohlcv.csv \
+  --output /tmp/sample_enriched.csv \
+  --sma-window 2 \
+  --rsi-window 2
+```
+
+Expected output:
+
+```text
+Wrote 5 rows to /tmp/sample_enriched.csv
+```
+
+The generated CSV includes the original OHLCV columns plus `sma_2` and `rsi_2`.
