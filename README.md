@@ -2,7 +2,7 @@
 
 SmartAnalyticsInvest MVP is a deterministic, local CSV analytics package for OHLCV market data. It loads a local CSV file, validates and cleans the required columns, calculates SMA and RSI indicators, and writes an enriched CSV from a minimal CLI.
 
-This MVP does not implement machine-learning predictions, trading recommendations, dashboards, web UI, live network data fetching, or portfolio/risk engines.
+This MVP does not implement machine-learning predictions, trading recommendations, dashboards, web UI, required live network data fetching, or portfolio/risk engines.
 
 ## Setup
 
@@ -19,6 +19,24 @@ python3 -m pytest
 ```
 
 The test suite is offline and uses local deterministic fixtures only.
+
+## Optional experimental Yahoo Finance adapter
+
+Core usage is local-CSV-first and does not require live market data packages. An optional experimental Yahoo Finance adapter is available for callers that choose to install `yfinance`:
+
+```bash
+python3 -m pip install -e '.[market-data]'
+```
+
+```python
+from smartanalyticsinvest.data_sources import fetch_yahoo_ohlcv
+from smartanalyticsinvest.pipeline import clean_ohlcv
+
+raw = fetch_yahoo_ohlcv("MSFT", period="1mo", interval="1d")
+cleaned = clean_ohlcv(raw)
+```
+
+The adapter returns the canonical lowercase OHLCV columns (`date`, `open`, `high`, `low`, `close`, `volume`) plus a `ticker` column containing the requested symbol. It imports `yfinance` lazily and raises a predictable project error with install guidance when the optional extra is not installed or Yahoo returns unusable data.
 
 ## Input CSV schema
 

@@ -27,5 +27,9 @@ class EmptyDataError(SmartAnalyticsInvestError):
     """Raised when no cleaned OHLCV rows remain for analysis."""
 
 
+class DataSourceError(SmartAnalyticsInvestError):
+    """Raised when an optional market data source cannot provide usable OHLCV rows."""
+
+
 class DataCleaningError(SmartAnalyticsInvestError):
     """Raised when OHLCV rows contain invalid required values."""
