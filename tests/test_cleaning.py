@@ -51,6 +51,44 @@ def test_clean_ohlcv_raises_empty_data_error_for_no_rows():
         clean_ohlcv(pd.DataFrame(columns=REQUIRED_OHLCV_COLUMNS))
 
 
+@pytest.mark.parametrize(
+    "open_, high, low, close",
+    [
+        (10, 8, 9, 9.5),  # high < low
+        (10, 9, 8, 8.5),  # high < open
+        (8, 9, 7, 10),  # high < close
+        (8, 9, 10, 8.5),  # low > open
+        (10, 11, 10.5, 10),  # low > close
+    ],
+)
+def test_clean_ohlcv_rejects_financially_inconsistent_price_rows(open_, high, low, close):
+    source = _frame(
+        [
+            ["2024-01-01", 10, 11, 9, 10.5, 100],
+            ["2024-01-02", open_, high, low, close, 200],
+        ]
+    )
+    source.index = [3, 7]
+
+    with pytest.raises(DataCleaningError, match="inconsistent OHLCV.*7"):
+        clean_ohlcv(source)
+
+
+def test_clean_ohlcv_rejects_financially_inconsistent_ticker_rows_before_deduplication():
+    source = pd.DataFrame(
+        [
+            ["2024-01-01", 10, 11, 9, 10.5, 100, "MSFT"],
+            ["2024-01-01", 20, 18, 19, 19.5, 200, "AAPL"],
+            ["2024-01-01", 22, 23, 21, 22.5, 220, "AAPL"],
+        ],
+        columns=[*REQUIRED_OHLCV_COLUMNS, "ticker"],
+    )
+    source.index = [1, 4, 6]
+
+    with pytest.raises(DataCleaningError, match="inconsistent OHLCV.*4"):
+        clean_ohlcv(source)
+
+
 def test_clean_ohlcv_preserves_extra_columns_in_messy_sorted_duplicate_fixture():
     source = pd.DataFrame(
         [

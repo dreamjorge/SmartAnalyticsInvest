@@ -28,7 +28,7 @@ Your input CSV must include these exact OHLCV columns:
 date, open, high, low, close, volume
 ```
 
-Extra columns may be present, but the MVP requires the six columns above for processing.
+Extra columns may be present, but the MVP requires the six columns above for processing. Required values must parse as dates/numbers, prices must be positive, volume must be non-negative, and OHLCV prices must be financially consistent: `high >= low`, `high >= open`, `high >= close`, `low <= open`, and `low <= close`.
 
 ### Optional ticker column
 
