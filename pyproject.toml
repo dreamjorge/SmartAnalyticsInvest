@@ -8,6 +8,26 @@ version = "0.1.0"
 description = "Deterministic local OHLCV CSV analytics toolkit."
 readme = "README.md"
 requires-python = ">=3.12"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Jorge" },
+]
+keywords = [
+    "analytics",
+    "csv",
+    "finance",
+    "ohlcv",
+    "technical-analysis",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Financial :: Investment",
+]
 dependencies = [
     "pandas",
 ]
@@ -23,6 +43,11 @@ market-data = [
 
 [project.scripts]
 smartanalyticsinvest = "smartanalyticsinvest.cli:main"
+
+[project.urls]
+Repository = "https://github.com/dreamjorge/SmartAnalyticsInvest"
+Changelog = "https://github.com/dreamjorge/SmartAnalyticsInvest/blob/main/CHANGELOG.md"
+Issues = "https://github.com/dreamjorge/SmartAnalyticsInvest/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
