@@ -38,9 +38,13 @@ dev = [
     "ruff",
     "mypy",
     "pandas-stubs",
+    "pyarrow",
 ]
 market-data = [
     "yfinance",
+]
+file-formats = [
+    "pyarrow",
 ]
 
 [project.scripts]

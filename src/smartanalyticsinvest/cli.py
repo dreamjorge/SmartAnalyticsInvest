@@ -6,8 +6,27 @@ import argparse
 import sys
 from pathlib import Path
 
+import pandas as pd
+
 from smartanalyticsinvest.errors import SmartAnalyticsInvestError
 from smartanalyticsinvest.pipeline import run_csv_pipeline
+
+_OUTPUT_FORMATS = ("csv", "json", "parquet")
+_PARQUET_INSTALL_GUIDANCE = "Install Parquet support with: pip install -e '.[file-formats]'"
+
+
+def _infer_output_format(output_path: Path) -> str:
+    suffix = output_path.suffix.lstrip(".").lower()
+    return suffix if suffix in _OUTPUT_FORMATS else "csv"
+
+
+def _write_output(result: pd.DataFrame, output_path: Path, output_format: str) -> None:
+    if output_format == "json":
+        result.to_json(output_path, orient="records", date_format="iso")
+    elif output_format == "parquet":
+        result.to_parquet(output_path, index=False)
+    else:
+        result.to_csv(output_path, index=False)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -18,7 +37,13 @@ def build_parser() -> argparse.ArgumentParser:
         description="Enrich a local OHLCV CSV with deterministic SMA and RSI columns.",
     )
     parser.add_argument("input_csv", help="Local OHLCV CSV input path")
-    parser.add_argument("--output", "-o", required=True, help="Output CSV path for enriched rows")
+    parser.add_argument("--output", "-o", required=True, help="Output path for enriched rows")
+    parser.add_argument(
+        "--output-format",
+        choices=_OUTPUT_FORMATS,
+        default=None,
+        help="Output file format (default: inferred from --output's extension, else csv)",
+    )
     parser.add_argument(
         "--sma-window",
         type=int,
@@ -86,6 +111,7 @@ def main(argv: list[str] | None = None) -> int:
         return int(exc.code) if isinstance(exc.code, int) else 1
 
     output_path = Path(args.output)
+    output_format = args.output_format or _infer_output_format(output_path)
     sma_windows = tuple(args.sma_windows) if args.sma_windows else (20,)
     rsi_windows = tuple(args.rsi_windows) if args.rsi_windows else (14,)
     ema_windows = tuple(args.ema_windows) if args.ema_windows else ()
@@ -115,9 +141,12 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
-        result.to_csv(output_path, index=False)
+        _write_output(result, output_path, output_format)
     except OSError as exc:
         print(f"Error: could not write output file: {output_path}: {exc}", file=sys.stderr)
+        return 1
+    except ImportError as exc:
+        print(f"Error: {exc}. {_PARQUET_INSTALL_GUIDANCE}", file=sys.stderr)
         return 1
 
     print(f"Wrote {len(result)} rows to {output_path}")

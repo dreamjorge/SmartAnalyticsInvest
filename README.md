@@ -177,6 +177,21 @@ python3 -m smartanalyticsinvest.cli input.csv --output enriched.csv
 
 The output CSV contains the required OHLCV columns plus indicator columns such as `sma_20` and `rsi_14`.
 
+### Output formats
+
+By default the output format is inferred from `--output`'s file extension (`.csv`, `.json`, or `.parquet`); anything else defaults to CSV. Override it explicitly with `--output-format`:
+
+```bash
+smartanalyticsinvest input.csv --output enriched.parquet
+smartanalyticsinvest input.csv --output enriched.out --output-format json
+```
+
+Parquet output requires the optional `file-formats` extra:
+
+```bash
+python3 -m pip install -e '.[file-formats]'
+```
+
 ## Smoke example
 
 The repository includes a tiny deterministic sample CSV:
