@@ -63,7 +63,13 @@ def test_run_csv_pipeline_optionally_adds_ema_and_daily_returns(tmp_path):
         include_daily_returns=True,
     )
 
-    assert list(result.columns) == [*REQUIRED_OHLCV_COLUMNS, "sma_2", "rsi_2", "ema_2", "daily_return"]
+    assert list(result.columns) == [
+        *REQUIRED_OHLCV_COLUMNS,
+        "sma_2",
+        "rsi_2",
+        "ema_2",
+        "daily_return",
+    ]
     assert result["ema_2"].tolist() == pytest.approx([10.0, 11.333333, 13.111111], rel=1e-6)
     assert pd.isna(result.loc[0, "daily_return"])
     assert result.loc[1, "daily_return"] == pytest.approx(0.2)
@@ -191,7 +197,11 @@ def test_single_ticker_indicators_match_equivalent_no_ticker_input():
         rsi_windows=(2,),
     )
     with_ticker = enrich_ohlcv(
-        clean_ohlcv(pd.DataFrame([row + ["ONLY"] for row in rows], columns=[*REQUIRED_OHLCV_COLUMNS, "ticker"])),
+        clean_ohlcv(
+            pd.DataFrame(
+                [row + ["ONLY"] for row in rows], columns=[*REQUIRED_OHLCV_COLUMNS, "ticker"]
+            )
+        ),
         sma_windows=(2,),
         rsi_windows=(2,),
     )

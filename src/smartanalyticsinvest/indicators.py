@@ -55,7 +55,9 @@ def add_sma(
     enriched = frame.copy()
     for window in windows:
         valid_window = _validate_window(window)
-        enriched[f"sma_{valid_window}"] = simple_moving_average(enriched[price_column], valid_window)
+        enriched[f"sma_{valid_window}"] = simple_moving_average(
+            enriched[price_column], valid_window
+        )
     return enriched
 
 
@@ -67,7 +69,9 @@ def add_ema(
     enriched = frame.copy()
     for window in windows:
         valid_window = _validate_window(window)
-        enriched[f"ema_{valid_window}"] = exponential_moving_average(enriched[price_column], valid_window)
+        enriched[f"ema_{valid_window}"] = exponential_moving_average(
+            enriched[price_column], valid_window
+        )
     return enriched
 
 
@@ -79,7 +83,9 @@ def add_rsi(
     enriched = frame.copy()
     for window in windows:
         valid_window = _validate_window(window)
-        enriched[f"rsi_{valid_window}"] = relative_strength_index(enriched[price_column], valid_window)
+        enriched[f"rsi_{valid_window}"] = relative_strength_index(
+            enriched[price_column], valid_window
+        )
     return enriched
 
 

@@ -26,6 +26,20 @@ python3 -m pytest
 
 The test suite is offline and uses local deterministic fixtures only.
 
+## Linting and formatting
+
+```bash
+python3 -m ruff check .
+python3 -m ruff format --check .
+```
+
+Both run in CI. Optionally install the local pre-commit hook (`.pre-commit-config.yaml`) to run them automatically before each commit:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
 ## Static type checking
 
 ```bash

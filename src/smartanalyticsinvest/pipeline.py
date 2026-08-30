@@ -21,7 +21,7 @@ def _raise_if_empty(frame: pd.DataFrame) -> None:
         raise EmptyDataError("No OHLCV rows available after cleaning")
 
 
-def _format_row_indices(indices: list, limit: int = _MAX_REPORTED_ROWS) -> str:
+def _format_row_indices(indices: list[object], limit: int = _MAX_REPORTED_ROWS) -> str:
     """Return a bounded, human-readable summary of row indices for error messages."""
 
     shown = ", ".join(str(index) for index in indices[:limit])
