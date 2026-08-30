@@ -171,6 +171,13 @@ def test_fetch_yahoo_ohlcv_many_fails_on_empty_symbol_list():
         fetch_yahoo_ohlcv_many([])
 
 
+def test_fetch_yahoo_ohlcv_many_rejects_unsupported_on_error_value():
+    from smartanalyticsinvest.data_sources import fetch_yahoo_ohlcv_many
+
+    with pytest.raises(ValueError, match="on_error must be 'raise' or 'skip'"):
+        fetch_yahoo_ohlcv_many(["AAPL"], on_error="rais")
+
+
 def test_fetch_yahoo_ohlcv_many_fails_on_individual_symbol_failure(monkeypatch):
     def download(symbol, **kwargs):
         if symbol == "BAD":

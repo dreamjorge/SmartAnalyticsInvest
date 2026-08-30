@@ -113,6 +113,8 @@ def fetch_yahoo_ohlcv_many(
 
     if not symbols:
         raise DataSourceError("No symbols provided to fetch_yahoo_ohlcv_many")
+    if on_error not in ("raise", "skip"):
+        raise ValueError(f"on_error must be 'raise' or 'skip', got {on_error!r}")
 
     frames = []
     failed_symbols: dict[str, str] = {}
