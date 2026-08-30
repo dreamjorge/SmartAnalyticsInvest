@@ -87,3 +87,44 @@ def fetch_yahoo_ohlcv(
         progress=False,
     )
     return _normalize_yahoo_frame(downloaded, symbol)
+
+
+def fetch_yahoo_ohlcv_many(
+    symbols: list[str] | tuple[str, ...],
+    *,
+    start: str | None = None,
+    end: str | None = None,
+    period: str = "1mo",
+    interval: str = "1d",
+) -> pd.DataFrame:
+    """Fetch multiple symbols from Yahoo Finance and return concatenated OHLCV rows.
+
+    Fetches each symbol individually and concatenates results into a single frame
+    with the ``ticker`` column populated, suitable for multi-ticker CSV pipelines.
+    If any symbol fetch fails, raises a DataSourceError with the failing symbol.
+
+    This adapter requires the optional ``market-data`` dependency extra.
+    """
+
+    if not symbols:
+        raise DataSourceError("No symbols provided to fetch_yahoo_ohlcv_many")
+
+    frames = []
+    for symbol in symbols:
+        try:
+            frame = fetch_yahoo_ohlcv(
+                symbol,
+                start=start,
+                end=end,
+                period=period,
+                interval=interval,
+            )
+            frames.append(frame)
+        except Exception as exc:
+            raise DataSourceError(f"Failed to fetch {symbol}: {exc}") from exc
+
+    if not frames:
+        raise DataSourceError(f"No OHLCV data returned for any of {len(symbols)} symbols")
+
+    concatenated = pd.concat(frames, ignore_index=True)
+    return concatenated.sort_values(by=["ticker", "date"]).reset_index(drop=True)

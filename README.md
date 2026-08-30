@@ -32,6 +32,8 @@ Core usage is local-CSV-first and does not require live market data packages. An
 python3 -m pip install -e '.[market-data]'
 ```
 
+### Single symbol
+
 ```python
 from smartanalyticsinvest.data_sources import fetch_yahoo_ohlcv
 from smartanalyticsinvest.pipeline import clean_ohlcv
@@ -40,7 +42,19 @@ raw = fetch_yahoo_ohlcv("MSFT", period="1mo", interval="1d")
 cleaned = clean_ohlcv(raw)
 ```
 
-The adapter returns the canonical lowercase OHLCV columns (`date`, `open`, `high`, `low`, `close`, `volume`) plus a `ticker` column containing the requested symbol. It imports `yfinance` lazily and raises a predictable project error with install guidance when the optional extra is not installed or Yahoo returns unusable data.
+### Multiple symbols
+
+For multi-instrument workflows, fetch and concatenate multiple symbols into a single frame:
+
+```python
+from smartanalyticsinvest.data_sources import fetch_yahoo_ohlcv_many
+from smartanalyticsinvest.pipeline import run_csv_pipeline
+
+raw = fetch_yahoo_ohlcv_many(["AAPL", "MSFT", "GOOGL"], period="1mo", interval="1d")
+result = run_csv_pipeline(raw, sma_windows=(20,), rsi_window=14)
+```
+
+The adapter returns the canonical lowercase OHLCV columns (`date`, `open`, `high`, `low`, `close`, `volume`) plus a `ticker` column. Multi-symbol fetches are automatically sorted by ticker and date for consistent processing. It imports `yfinance` lazily and raises a predictable project error with install guidance when the optional extra is not installed or Yahoo returns unusable data.
 
 ## Input CSV schema
 

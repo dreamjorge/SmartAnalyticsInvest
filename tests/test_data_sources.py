@@ -101,3 +101,94 @@ def test_fetch_yahoo_ohlcv_fails_for_empty_or_malformed_data(monkeypatch, downlo
 
     with pytest.raises(DataSourceError, match=match):
         fetch_yahoo_ohlcv("MSFT")
+
+
+def test_fetch_yahoo_ohlcv_many_concatenates_multiple_symbols(monkeypatch):
+    def download(symbol, **kwargs):
+        prices = {"AAPL": (150, 160, 145, 155), "MSFT": (300, 310, 295, 305)}
+        open_p, high_p, low_p, close_p = prices[symbol]
+        return pd.DataFrame(
+            {
+                "Open": [open_p, open_p + 1],
+                "High": [high_p, high_p + 1],
+                "Low": [low_p, low_p + 1],
+                "Close": [close_p, close_p + 1],
+                "Volume": [1000, 1100],
+            },
+            index=pd.to_datetime(["2024-01-02", "2024-01-03"]),
+        )
+
+    monkeypatch.setitem(sys.modules, "yfinance", SimpleNamespace(download=download))
+
+    from smartanalyticsinvest.data_sources import fetch_yahoo_ohlcv_many
+
+    result = fetch_yahoo_ohlcv_many(["AAPL", "MSFT"], period="1mo")
+
+    assert len(result) == 4
+    assert list(result.columns) == ["date", "open", "high", "low", "close", "volume", "ticker"]
+    assert result["ticker"].unique().tolist() == ["AAPL", "MSFT"]
+    assert (result.iloc[0:2]["ticker"] == "AAPL").all()
+    assert (result.iloc[2:4]["ticker"] == "MSFT").all()
+    assert result.loc[0, "open"] == 150.0
+    assert result.loc[2, "open"] == 300.0
+
+
+def test_fetch_yahoo_ohlcv_many_sorts_by_ticker_and_date(monkeypatch):
+    def download(symbol, **kwargs):
+        if symbol == "AAPL":
+            dates = pd.to_datetime(["2024-01-03", "2024-01-02"])
+        else:
+            dates = pd.to_datetime(["2024-01-02", "2024-01-03"])
+        return pd.DataFrame(
+            {
+                "Open": [100.0, 101.0],
+                "High": [110.0, 111.0],
+                "Low": [95.0, 96.0],
+                "Close": [105.0, 106.0],
+                "Volume": [1000, 1100],
+            },
+            index=dates,
+        )
+
+    monkeypatch.setitem(sys.modules, "yfinance", SimpleNamespace(download=download))
+
+    from smartanalyticsinvest.data_sources import fetch_yahoo_ohlcv_many
+
+    result = fetch_yahoo_ohlcv_many(["MSFT", "AAPL"])
+
+    tickers = result["ticker"].tolist()
+    assert tickers == ["AAPL", "AAPL", "MSFT", "MSFT"]
+    aapl_dates = result[result["ticker"] == "AAPL"]["date"].tolist()
+    msft_dates = result[result["ticker"] == "MSFT"]["date"].tolist()
+    assert aapl_dates == sorted(aapl_dates)
+    assert msft_dates == sorted(msft_dates)
+
+
+def test_fetch_yahoo_ohlcv_many_fails_on_empty_symbol_list():
+    from smartanalyticsinvest.data_sources import fetch_yahoo_ohlcv_many
+
+    with pytest.raises(DataSourceError, match="No symbols provided"):
+        fetch_yahoo_ohlcv_many([])
+
+
+def test_fetch_yahoo_ohlcv_many_fails_on_individual_symbol_failure(monkeypatch):
+    def download(symbol, **kwargs):
+        if symbol == "BAD":
+            raise ValueError("Invalid symbol")
+        return pd.DataFrame(
+            {
+                "Open": [100.0],
+                "High": [110.0],
+                "Low": [95.0],
+                "Close": [105.0],
+                "Volume": [1000],
+            },
+            index=pd.to_datetime(["2024-01-02"]),
+        )
+
+    monkeypatch.setitem(sys.modules, "yfinance", SimpleNamespace(download=download))
+
+    from smartanalyticsinvest.data_sources import fetch_yahoo_ohlcv_many
+
+    with pytest.raises(DataSourceError, match="Failed to fetch BAD"):
+        fetch_yahoo_ohlcv_many(["AAPL", "BAD", "MSFT"])
