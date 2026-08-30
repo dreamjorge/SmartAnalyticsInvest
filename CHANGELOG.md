@@ -4,6 +4,7 @@ All notable changes to SmartAnalyticsInvest will be documented in this file.
 
 ## Unreleased
 
+- **Breaking:** Minimum supported Python version raised from 3.12 to 3.14. 3.12 and 3.13 are no longer supported.
 - **Breaking:** `enrich_ohlcv`/`run_csv_pipeline`'s `rsi_window: int` keyword argument is now `rsi_windows: tuple[int, ...]`, matching the existing `sma_windows`/`ema_windows` pattern. `indicators.add_rsi`'s `window` keyword is now `windows` for the same reason. The CLI's `--rsi-window` flag keeps its name and is now repeatable, like `--sma-window`/`--ema-window`.
 
 ## 0.1.1 - 2026-08-19

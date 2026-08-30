@@ -12,7 +12,7 @@ Version `0.1.0` is the initial local-first release candidate. See `CHANGELOG.md`
 
 ## Setup
 
-Use Python 3.12 or newer. From the repository root, install the package with development dependencies:
+Use Python 3.14 or newer. From the repository root, install the package with development dependencies:
 
 ```bash
 python3 -m pip install -e '.[dev]'
