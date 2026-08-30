@@ -60,8 +60,12 @@ def test_fetch_yahoo_ohlcv_uses_only_price_field_level_for_multiindex_columns(mo
             ("Volume", "OPEN"),
         ]
     )
-    downloaded = pd.DataFrame([[999.0, 100.0, 110.0, 95.0, 105.0, 1000]], index=index, columns=columns)
-    monkeypatch.setitem(sys.modules, "yfinance", SimpleNamespace(download=lambda *args, **kwargs: downloaded))
+    downloaded = pd.DataFrame(
+        [[999.0, 100.0, 110.0, 95.0, 105.0, 1000]], index=index, columns=columns
+    )
+    monkeypatch.setitem(
+        sys.modules, "yfinance", SimpleNamespace(download=lambda *args, **kwargs: downloaded)
+    )
 
     from smartanalyticsinvest.data_sources import fetch_yahoo_ohlcv
 
@@ -95,7 +99,9 @@ def test_fetch_yahoo_ohlcv_missing_optional_dependency_has_install_guidance(monk
     ],
 )
 def test_fetch_yahoo_ohlcv_fails_for_empty_or_malformed_data(monkeypatch, downloaded, match):
-    monkeypatch.setitem(sys.modules, "yfinance", SimpleNamespace(download=lambda *args, **kwargs: downloaded))
+    monkeypatch.setitem(
+        sys.modules, "yfinance", SimpleNamespace(download=lambda *args, **kwargs: downloaded)
+    )
 
     from smartanalyticsinvest.data_sources import fetch_yahoo_ohlcv
 

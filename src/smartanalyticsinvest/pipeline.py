@@ -107,13 +107,15 @@ def _add_grouped_sma(
     return enriched
 
 
-def _add_grouped_rsi(frame: pd.DataFrame, *, price_column: str = "close", window: int = 14) -> pd.DataFrame:
+def _add_grouped_rsi(
+    frame: pd.DataFrame, *, price_column: str = "close", window: int = 14
+) -> pd.DataFrame:
     from smartanalyticsinvest.indicators import relative_strength_index
 
     enriched = frame.copy()
-    enriched[f"rsi_{window}"] = enriched.groupby(_TICKER_COLUMN, sort=False)[price_column].transform(
-        lambda series: relative_strength_index(series, window)
-    )
+    enriched[f"rsi_{window}"] = enriched.groupby(_TICKER_COLUMN, sort=False)[
+        price_column
+    ].transform(lambda series: relative_strength_index(series, window))
     return enriched
 
 

@@ -24,6 +24,20 @@ python3 -m pytest
 
 The test suite is offline and uses local deterministic fixtures only.
 
+## Linting and formatting
+
+```bash
+python3 -m ruff check .
+python3 -m ruff format --check .
+```
+
+Both run in CI. Optionally install the local pre-commit hook (`.pre-commit-config.yaml`) to run them automatically before each commit:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
 ## Optional experimental Yahoo Finance adapter
 
 Core usage is local-CSV-first and does not require live market data packages. An optional experimental Yahoo Finance adapter is available for callers that choose to install `yfinance`:

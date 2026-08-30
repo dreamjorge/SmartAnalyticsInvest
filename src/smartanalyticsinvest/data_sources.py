@@ -19,7 +19,9 @@ def _import_yfinance() -> Any:
         return import_module("yfinance")
     except ModuleNotFoundError as exc:
         if exc.name == "yfinance":
-            raise DataSourceError(f"yfinance is required for Yahoo OHLCV fetching. {_INSTALL_GUIDANCE}") from exc
+            raise DataSourceError(
+                f"yfinance is required for Yahoo OHLCV fetching. {_INSTALL_GUIDANCE}"
+            ) from exc
         raise
 
 

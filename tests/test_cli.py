@@ -217,7 +217,14 @@ def test_cli_main_accepts_combined_flags(tmp_path):
 
     written = pd.read_csv(output_csv)
     assert exit_code == 0
-    expected_columns = [*REQUIRED_OHLCV_COLUMNS, "sma_3", "sma_5", "rsi_14", "ema_7", "daily_return"]
+    expected_columns = [
+        *REQUIRED_OHLCV_COLUMNS,
+        "sma_3",
+        "sma_5",
+        "rsi_14",
+        "ema_7",
+        "daily_return",
+    ]
     assert expected_columns == list(written.columns)
 
 
