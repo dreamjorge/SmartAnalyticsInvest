@@ -389,3 +389,78 @@ def test_cli_main_reports_missing_parquet_dependency_without_traceback(
     assert "error:" in captured.err.lower()
     assert "pip install -e '.[file-formats]'" in captured.err
     assert "traceback" not in captured.err.lower()
+
+
+def test_cli_main_processes_multiple_input_files_into_output_directory(tmp_path):
+    input_a = tmp_path / "a.csv"
+    input_b = tmp_path / "b.csv"
+    output_dir = tmp_path / "enriched"
+    _write_valid_csv(input_a)
+    _write_valid_csv(input_b)
+
+    exit_code = main([str(input_a), str(input_b), "--output", str(output_dir), "--sma-window", "3"])
+
+    assert exit_code == 0
+    written_a = pd.read_csv(output_dir / "a.csv")
+    written_b = pd.read_csv(output_dir / "b.csv")
+    assert [*REQUIRED_OHLCV_COLUMNS, "sma_3", "rsi_14"] == list(written_a.columns)
+    assert [*REQUIRED_OHLCV_COLUMNS, "sma_3", "rsi_14"] == list(written_b.columns)
+
+
+def test_cli_main_batch_mode_creates_output_directory_and_reports_summary(tmp_path, capsys):
+    input_a = tmp_path / "a.csv"
+    input_b = tmp_path / "b.csv"
+    output_dir = tmp_path / "does-not-exist-yet"
+    _write_valid_csv(input_a)
+    _write_valid_csv(input_b)
+
+    exit_code = main([str(input_a), str(input_b), "--output", str(output_dir)])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert output_dir.is_dir()
+    assert "Processed 2/2 input files successfully" in captured.out
+
+
+def test_cli_main_batch_mode_continues_past_one_bad_file(tmp_path, capsys):
+    input_good = tmp_path / "good.csv"
+    input_missing = tmp_path / "missing.csv"
+    output_dir = tmp_path / "enriched"
+    _write_valid_csv(input_good)
+
+    exit_code = main([str(input_good), str(input_missing), "--output", str(output_dir)])
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert (output_dir / "good.csv").exists()
+    assert not (output_dir / "missing.csv").exists()
+    assert "could not read input file" in captured.err.lower()
+    assert "Processed 1/2 input files successfully" in captured.out
+
+
+def test_cli_main_batch_mode_output_format_flag_applies_to_all_files(tmp_path):
+    input_a = tmp_path / "a.csv"
+    input_b = tmp_path / "b.csv"
+    output_dir = tmp_path / "enriched"
+    _write_valid_csv(input_a)
+    _write_valid_csv(input_b)
+
+    exit_code = main(
+        [str(input_a), str(input_b), "--output", str(output_dir), "--output-format", "json"]
+    )
+
+    assert exit_code == 0
+    assert pd.read_json(output_dir / "a.json").shape[0] == 16
+    assert pd.read_json(output_dir / "b.json").shape[0] == 16
+
+
+def test_cli_main_expands_glob_pattern_for_multiple_inputs(tmp_path):
+    _write_valid_csv(tmp_path / "aapl.csv")
+    _write_valid_csv(tmp_path / "msft.csv")
+    output_dir = tmp_path / "enriched"
+
+    exit_code = main([str(tmp_path / "*.csv"), "--output", str(output_dir)])
+
+    assert exit_code == 0
+    assert (output_dir / "aapl.csv").exists()
+    assert (output_dir / "msft.csv").exists()
