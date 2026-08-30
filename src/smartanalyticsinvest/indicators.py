@@ -161,3 +161,35 @@ def add_bollinger_bands(
         enriched[f"bb_upper_{valid_window}"] = upper
         enriched[f"bb_lower_{valid_window}"] = lower
     return enriched
+
+
+def true_range(frame: pd.DataFrame) -> pd.Series:
+    """Return the true range for an OHLC frame (max of high-low and gaps from prior close)."""
+
+    prev_close = frame["close"].shift(1)
+    ranges = pd.concat(
+        [
+            frame["high"] - frame["low"],
+            (frame["high"] - prev_close).abs(),
+            (frame["low"] - prev_close).abs(),
+        ],
+        axis=1,
+    )
+    return ranges.max(axis=1)
+
+
+def average_true_range(frame: pd.DataFrame, window: int = 14) -> pd.Series:
+    """Return the rolling mean of the true range for the requested window."""
+
+    valid_window = _validate_window(window)
+    return true_range(frame).rolling(window=valid_window, min_periods=valid_window).mean()
+
+
+def add_atr(frame: pd.DataFrame, *, windows: tuple[int, ...] = (14,)) -> pd.DataFrame:
+    """Return a copy enriched with one ATR column per requested window."""
+
+    enriched = frame.copy()
+    for window in windows:
+        valid_window = _validate_window(window)
+        enriched[f"atr_{valid_window}"] = average_true_range(enriched, valid_window)
+    return enriched

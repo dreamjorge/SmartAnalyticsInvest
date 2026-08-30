@@ -204,6 +204,30 @@ def _add_grouped_bollinger_bands(
     return enriched
 
 
+def _add_grouped_atr(frame: pd.DataFrame, *, windows: tuple[int, ...] = (14,)) -> pd.DataFrame:
+    from smartanalyticsinvest.indicators import _validate_window
+
+    enriched = frame.copy()
+    prev_close = enriched.groupby(_TICKER_COLUMN, sort=False)["close"].shift(1)
+    true_range_by_row = pd.concat(
+        [
+            enriched["high"] - enriched["low"],
+            (enriched["high"] - prev_close).abs(),
+            (enriched["low"] - prev_close).abs(),
+        ],
+        axis=1,
+    ).max(axis=1)
+    grouped_true_range = true_range_by_row.groupby(enriched[_TICKER_COLUMN], sort=False)
+    for window in windows:
+        valid_window = _validate_window(window)
+        enriched[f"atr_{valid_window}"] = grouped_true_range.transform(
+            lambda series, window=valid_window: series.rolling(
+                window=window, min_periods=window
+            ).mean()
+        )
+    return enriched
+
+
 def enrich_ohlcv(
     frame: pd.DataFrame,
     *,
@@ -217,6 +241,7 @@ def enrich_ohlcv(
     macd_signal: int = 9,
     bollinger_windows: tuple[int, ...] = (),
     bollinger_num_std: float = 2.0,
+    atr_windows: tuple[int, ...] = (),
 ) -> pd.DataFrame:
     """Return cleaned OHLCV rows enriched with configured indicators."""
 
@@ -234,9 +259,12 @@ def enrich_ohlcv(
             enriched = _add_grouped_bollinger_bands(
                 enriched, windows=bollinger_windows, num_std=bollinger_num_std
             )
+        if atr_windows:
+            enriched = _add_grouped_atr(enriched, windows=atr_windows)
         return enriched
 
     from smartanalyticsinvest.indicators import (
+        add_atr,
         add_bollinger_bands,
         add_daily_returns,
         add_ema,
@@ -256,6 +284,8 @@ def enrich_ohlcv(
         enriched = add_bollinger_bands(
             enriched, windows=bollinger_windows, num_std=bollinger_num_std
         )
+    if atr_windows:
+        enriched = add_atr(enriched, windows=atr_windows)
     return enriched
 
 
@@ -272,6 +302,7 @@ def run_csv_pipeline(
     macd_signal: int = 9,
     bollinger_windows: tuple[int, ...] = (),
     bollinger_num_std: float = 2.0,
+    atr_windows: tuple[int, ...] = (),
 ) -> pd.DataFrame:
     """Load, clean, and enrich a local OHLCV CSV file."""
 
@@ -289,4 +320,5 @@ def run_csv_pipeline(
         macd_signal=macd_signal,
         bollinger_windows=bollinger_windows,
         bollinger_num_std=bollinger_num_std,
+        atr_windows=atr_windows,
     )

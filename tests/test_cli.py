@@ -315,3 +315,18 @@ def test_cli_main_accepts_bollinger_flags(tmp_path):
         "bb_lower_5",
     ] == list(written.columns)
     assert not written["bb_middle_5"].isna().all()
+
+
+def test_cli_main_accepts_multiple_atr_windows(tmp_path):
+    input_csv = tmp_path / "input.csv"
+    output_csv = tmp_path / "enriched.csv"
+    _write_valid_csv(input_csv)
+
+    exit_code = main(
+        [str(input_csv), "--output", str(output_csv), "--atr-window", "5", "--atr-window", "10"]
+    )
+
+    written = pd.read_csv(output_csv)
+    assert exit_code == 0
+    assert [*REQUIRED_OHLCV_COLUMNS, "sma_20", "rsi_14", "atr_5", "atr_10"] == list(written.columns)
+    assert not written["atr_5"].isna().all()
