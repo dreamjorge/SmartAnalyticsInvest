@@ -17,7 +17,7 @@ def test_run_csv_pipeline_returns_clean_sorted_rows_with_sma_and_rsi(tmp_path):
         columns=REQUIRED_OHLCV_COLUMNS,
     ).to_csv(input_csv, index=False)
 
-    result = run_csv_pipeline(input_csv, sma_windows=(2,), rsi_window=2)
+    result = run_csv_pipeline(input_csv, sma_windows=(2,), rsi_windows=(2,))
 
     assert list(result.columns) == [*REQUIRED_OHLCV_COLUMNS, "sma_2", "rsi_2"]
     assert result["date"].tolist() == [
@@ -58,7 +58,7 @@ def test_run_csv_pipeline_optionally_adds_ema_and_daily_returns(tmp_path):
     result = run_csv_pipeline(
         input_csv,
         sma_windows=(2,),
-        rsi_window=2,
+        rsi_windows=(2,),
         ema_windows=(2,),
         include_daily_returns=True,
     )
@@ -76,7 +76,7 @@ def test_run_csv_pipeline_stops_on_cleaning_validation_failure(tmp_path):
     ).to_csv(input_csv, index=False)
 
     with pytest.raises(DataCleaningError):
-        run_csv_pipeline(input_csv, sma_windows=(2,), rsi_window=2)
+        run_csv_pipeline(input_csv, sma_windows=(2,), rsi_windows=(2,))
 
 
 def test_enrich_ohlcv_groups_sma_by_ticker_without_multiindex():
@@ -92,7 +92,7 @@ def test_enrich_ohlcv_groups_sma_by_ticker_without_multiindex():
         )
     )
 
-    result = enrich_ohlcv(cleaned, sma_windows=(2,), rsi_window=2)
+    result = enrich_ohlcv(cleaned, sma_windows=(2,), rsi_windows=(2,))
 
     assert not isinstance(result.index, pd.MultiIndex)
     assert result["ticker"].tolist() == ["A", "A", "B", "B"]
@@ -118,7 +118,7 @@ def test_enrich_ohlcv_groups_ema_and_daily_returns_by_ticker():
     result = enrich_ohlcv(
         cleaned,
         sma_windows=(2,),
-        rsi_window=2,
+        rsi_windows=(2,),
         ema_windows=(2,),
         include_daily_returns=True,
     )
@@ -149,7 +149,7 @@ def test_enrich_ohlcv_groups_rsi_diff_by_ticker():
         )
     )
 
-    result = enrich_ohlcv(cleaned, sma_windows=(2,), rsi_window=2)
+    result = enrich_ohlcv(cleaned, sma_windows=(2,), rsi_windows=(2,))
 
     b_rsi = result.loc[result["ticker"].eq("B"), "rsi_2"].tolist()
     assert pd.isna(b_rsi[0])
@@ -168,7 +168,7 @@ def test_run_csv_pipeline_accepts_multi_ticker_csv_and_keeps_grouped_output(tmp_
         columns=[*REQUIRED_OHLCV_COLUMNS, "ticker"],
     ).to_csv(input_csv, index=False)
 
-    result = run_csv_pipeline(input_csv, sma_windows=(2,), rsi_window=2)
+    result = run_csv_pipeline(input_csv, sma_windows=(2,), rsi_windows=(2,))
 
     assert [*REQUIRED_OHLCV_COLUMNS, "ticker", "sma_2", "rsi_2"] == list(result.columns)
     assert result[["ticker", "date"]].to_dict("records") == [
@@ -188,14 +188,48 @@ def test_single_ticker_indicators_match_equivalent_no_ticker_input():
     no_ticker = enrich_ohlcv(
         clean_ohlcv(pd.DataFrame(rows, columns=REQUIRED_OHLCV_COLUMNS)),
         sma_windows=(2,),
-        rsi_window=2,
+        rsi_windows=(2,),
     )
     with_ticker = enrich_ohlcv(
         clean_ohlcv(pd.DataFrame([row + ["ONLY"] for row in rows], columns=[*REQUIRED_OHLCV_COLUMNS, "ticker"])),
         sma_windows=(2,),
-        rsi_window=2,
+        rsi_windows=(2,),
     )
 
     pd.testing.assert_series_equal(with_ticker["sma_2"], no_ticker["sma_2"], check_names=False)
     pd.testing.assert_series_equal(with_ticker["rsi_2"], no_ticker["rsi_2"], check_names=False)
     assert with_ticker["ticker"].tolist() == ["ONLY", "ONLY", "ONLY"]
+
+
+def test_enrich_ohlcv_accepts_multiple_rsi_windows_without_ticker():
+    rows = [
+        ["2024-01-01", 10, 11, 9, 10, 100],
+        ["2024-01-02", 12, 13, 11, 12, 100],
+        ["2024-01-03", 11, 12, 10, 11, 100],
+        ["2024-01-04", 13, 14, 12, 13, 100],
+    ]
+    cleaned = clean_ohlcv(pd.DataFrame(rows, columns=REQUIRED_OHLCV_COLUMNS))
+
+    result = enrich_ohlcv(cleaned, sma_windows=(2,), rsi_windows=(2, 3))
+
+    assert [*REQUIRED_OHLCV_COLUMNS, "sma_2", "rsi_2", "rsi_3"] == list(result.columns)
+    assert result["rsi_2"].notna().sum() < len(result)
+    assert result["rsi_3"].notna().sum() < result["rsi_2"].notna().sum()
+
+
+def test_enrich_ohlcv_accepts_multiple_rsi_windows_grouped_by_ticker():
+    cleaned = clean_ohlcv(
+        pd.DataFrame(
+            [
+                ["2024-01-01", 10, 11, 9, 10, 100, "A"],
+                ["2024-01-02", 12, 13, 11, 12, 100, "A"],
+                ["2024-01-03", 11, 12, 10, 11, 100, "A"],
+                ["2024-01-04", 13, 14, 12, 13, 100, "A"],
+            ],
+            columns=[*REQUIRED_OHLCV_COLUMNS, "ticker"],
+        )
+    )
+
+    result = enrich_ohlcv(cleaned, sma_windows=(2,), rsi_windows=(2, 3))
+
+    assert [*REQUIRED_OHLCV_COLUMNS, "ticker", "sma_2", "rsi_2", "rsi_3"] == list(result.columns)

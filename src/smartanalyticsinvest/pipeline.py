@@ -118,13 +118,17 @@ def _add_grouped_sma(
     return enriched
 
 
-def _add_grouped_rsi(frame: pd.DataFrame, *, price_column: str = "close", window: int = 14) -> pd.DataFrame:
+def _add_grouped_rsi(
+    frame: pd.DataFrame, *, price_column: str = "close", windows: tuple[int, ...] = (14,)
+) -> pd.DataFrame:
     from smartanalyticsinvest.indicators import relative_strength_index
 
     enriched = frame.copy()
-    enriched[f"rsi_{window}"] = enriched.groupby(_TICKER_COLUMN, sort=False)[price_column].transform(
-        lambda series: relative_strength_index(series, window)
-    )
+    grouped_prices = enriched.groupby(_TICKER_COLUMN, sort=False)[price_column]
+    for window in windows:
+        enriched[f"rsi_{window}"] = grouped_prices.transform(
+            lambda series, window=window: relative_strength_index(series, window)
+        )
     return enriched
 
 
@@ -156,7 +160,7 @@ def enrich_ohlcv(
     frame: pd.DataFrame,
     *,
     sma_windows: tuple[int, ...] = (20,),
-    rsi_window: int = 14,
+    rsi_windows: tuple[int, ...] = (14,),
     ema_windows: tuple[int, ...] = (),
     include_daily_returns: bool = False,
 ) -> pd.DataFrame:
@@ -164,7 +168,7 @@ def enrich_ohlcv(
 
     if _has_ticker_column(frame):
         enriched = _add_grouped_sma(frame, windows=sma_windows)
-        enriched = _add_grouped_rsi(enriched, window=rsi_window)
+        enriched = _add_grouped_rsi(enriched, windows=rsi_windows)
         enriched = _add_grouped_ema(enriched, windows=ema_windows)
         if include_daily_returns:
             enriched = _add_grouped_daily_returns(enriched)
@@ -173,7 +177,7 @@ def enrich_ohlcv(
     from smartanalyticsinvest.indicators import add_daily_returns, add_ema, add_rsi, add_sma
 
     enriched = add_sma(frame, windows=sma_windows)
-    enriched = add_rsi(enriched, window=rsi_window)
+    enriched = add_rsi(enriched, windows=rsi_windows)
     enriched = add_ema(enriched, windows=ema_windows)
     if include_daily_returns:
         enriched = add_daily_returns(enriched)
@@ -184,7 +188,7 @@ def run_csv_pipeline(
     input_path: str | Path,
     *,
     sma_windows: tuple[int, ...] = (20,),
-    rsi_window: int = 14,
+    rsi_windows: tuple[int, ...] = (14,),
     ema_windows: tuple[int, ...] = (),
     include_daily_returns: bool = False,
 ) -> pd.DataFrame:
@@ -195,7 +199,7 @@ def run_csv_pipeline(
     return enrich_ohlcv(
         cleaned,
         sma_windows=sma_windows,
-        rsi_window=rsi_window,
+        rsi_windows=rsi_windows,
         ema_windows=ema_windows,
         include_daily_returns=include_daily_returns,
     )

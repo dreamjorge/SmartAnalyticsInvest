@@ -103,13 +103,23 @@ def test_add_rsi_creates_column_without_mutating_input_and_flat_series_is_neutra
     frame = pd.DataFrame({"close": [10, 10, 10]})
     original = frame.copy(deep=True)
 
-    enriched = add_rsi(frame, window=2)
+    enriched = add_rsi(frame, windows=(2,))
 
     assert pd.isna(enriched.loc[0, "rsi_2"])
     assert pd.isna(enriched.loc[1, "rsi_2"])
     assert enriched.loc[2, "rsi_2"] == 50.0
     assert "rsi_2" not in frame.columns
     pd.testing.assert_frame_equal(frame, original)
+
+
+def test_add_rsi_creates_one_column_per_requested_window():
+    frame = pd.DataFrame({"close": [10, 12, 11, 13, 12]})
+
+    enriched = add_rsi(frame, windows=(2, 3))
+
+    assert "rsi_2" in enriched.columns
+    assert "rsi_3" in enriched.columns
+    assert enriched["rsi_2"].notna().sum() > enriched["rsi_3"].notna().sum()
 
 
 def test_relative_strength_index_declining_series_reaches_zero_after_window():
