@@ -66,6 +66,13 @@ def build_parser() -> argparse.ArgumentParser:
         default=2.0,
         help="Number of standard deviations for the Bollinger Bands (default: 2.0)",
     )
+    parser.add_argument(
+        "--atr-window",
+        type=int,
+        action="append",
+        dest="atr_windows",
+        help="ATR (Average True Range) window to calculate (can be repeated for multiple windows)",
+    )
     return parser
 
 
@@ -83,6 +90,7 @@ def main(argv: list[str] | None = None) -> int:
     rsi_windows = tuple(args.rsi_windows) if args.rsi_windows else (14,)
     ema_windows = tuple(args.ema_windows) if args.ema_windows else ()
     bollinger_windows = tuple(args.bollinger_windows) if args.bollinger_windows else ()
+    atr_windows = tuple(args.atr_windows) if args.atr_windows else ()
 
     try:
         result = run_csv_pipeline(
@@ -97,6 +105,7 @@ def main(argv: list[str] | None = None) -> int:
             macd_signal=args.macd_signal,
             bollinger_windows=bollinger_windows,
             bollinger_num_std=args.bollinger_num_std,
+            atr_windows=atr_windows,
         )
     except FileNotFoundError:
         print(f"Error: could not read input file: {args.input_csv}", file=sys.stderr)

@@ -348,3 +348,41 @@ def test_enrich_ohlcv_optionally_adds_bollinger_bands_grouped_by_ticker():
         "bb_lower_3",
     ] == list(result.columns)
     assert result.loc[2, "bb_middle_3"] == 11.0
+
+
+def test_enrich_ohlcv_optionally_adds_atr_without_ticker():
+    rows = [
+        ["2024-01-01", 10, 11, 9, 10, 100],
+        ["2024-01-02", 14, 15, 14, 14, 100],
+        ["2024-01-03", 14, 15, 13, 14, 100],
+        ["2024-01-04", 15, 16, 14, 15, 100],
+        ["2024-01-05", 16, 17, 15, 16, 100],
+    ]
+    cleaned = clean_ohlcv(pd.DataFrame(rows, columns=REQUIRED_OHLCV_COLUMNS))
+
+    result = enrich_ohlcv(cleaned, sma_windows=(2,), atr_windows=(3,))
+
+    assert [*REQUIRED_OHLCV_COLUMNS, "sma_2", "rsi_14", "atr_3"] == list(result.columns)
+    assert result.loc[2, "atr_3"] == pytest.approx(3.0)
+    assert result.loc[4, "atr_3"] == pytest.approx(2.0)
+
+
+def test_enrich_ohlcv_atr_does_not_leak_previous_close_across_tickers():
+    cleaned = clean_ohlcv(
+        pd.DataFrame(
+            [
+                ["2024-01-01", 10, 11, 9, 10, 100, "A"],
+                ["2024-01-02", 14, 15, 14, 14, 100, "A"],
+                ["2024-01-03", 14, 15, 13, 14, 100, "A"],
+                ["2024-01-04", 15, 16, 14, 15, 100, "A"],
+                ["2024-01-05", 16, 17, 15, 16, 100, "A"],
+                ["2024-01-01", 95, 100, 90, 95, 100, "B"],
+            ],
+            columns=[*REQUIRED_OHLCV_COLUMNS, "ticker"],
+        )
+    )
+
+    result = enrich_ohlcv(cleaned, atr_windows=(1,))
+
+    b_row = result.loc[result["ticker"].eq("B")].iloc[0]
+    assert b_row["atr_1"] == pytest.approx(10.0)

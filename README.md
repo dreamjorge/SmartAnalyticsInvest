@@ -131,6 +131,12 @@ This adds columns such as `ema_12`, `ema_26`, and `daily_return`; the first dail
 result = run_csv_pipeline("input.csv", bollinger_windows=(20,))
 ```
 
+`atr_windows` accepts one or more windows to produce `atr_<window>` columns (Average True Range, using `high`/`low`/`close` together rather than a single price column):
+
+```python
+result = run_csv_pipeline("input.csv", atr_windows=(14,))
+```
+
 ## CLI usage
 
 Run the local CSV pipeline and write an enriched CSV:
@@ -155,6 +161,12 @@ Add `--bollinger-window` (repeatable, like `--sma-window`) for `bb_middle_<windo
 
 ```bash
 smartanalyticsinvest input.csv --output enriched.csv --bollinger-window 20 --bollinger-num-std 2.5
+```
+
+Add `--atr-window` (repeatable, like `--sma-window`) for `atr_<window>` (Average True Range) columns:
+
+```bash
+smartanalyticsinvest input.csv --output enriched.csv --atr-window 14
 ```
 
 You can also run the module directly:

@@ -2,18 +2,21 @@ import pandas as pd
 import pytest
 
 from smartanalyticsinvest.indicators import (
+    add_atr,
     add_bollinger_bands,
     add_daily_returns,
     add_ema,
     add_macd,
     add_rsi,
     add_sma,
+    average_true_range,
     bollinger_bands,
     daily_returns,
     exponential_moving_average,
     macd,
     relative_strength_index,
     simple_moving_average,
+    true_range,
 )
 
 
@@ -223,4 +226,50 @@ def test_add_bollinger_bands_creates_columns_per_window_without_mutating_input()
     assert enriched.loc[2, "bb_middle_3"] == 11.0
     assert enriched.loc[2, "bb_upper_3"] == 13.0
     assert enriched.loc[2, "bb_lower_3"] == 9.0
+    pd.testing.assert_frame_equal(frame, original)
+
+
+def test_true_range_uses_gap_from_prior_close_when_larger_than_high_low_range():
+    frame = pd.DataFrame(
+        {
+            "high": [11.0, 15.0, 15.0, 16.0, 17.0],
+            "low": [9.0, 14.0, 13.0, 14.0, 15.0],
+            "close": [10.0, 14.0, 14.0, 15.0, 16.0],
+        }
+    )
+
+    tr = true_range(frame)
+
+    assert tr.tolist() == pytest.approx([2.0, 5.0, 2.0, 2.0, 2.0])
+
+
+def test_average_true_range_matches_hand_computed_rolling_mean():
+    frame = pd.DataFrame(
+        {
+            "high": [11.0, 15.0, 15.0, 16.0, 17.0],
+            "low": [9.0, 14.0, 13.0, 14.0, 15.0],
+            "close": [10.0, 14.0, 14.0, 15.0, 16.0],
+        }
+    )
+
+    atr = average_true_range(frame, window=3)
+
+    assert atr.tolist() == pytest.approx([float("nan"), float("nan"), 3.0, 3.0, 2.0], nan_ok=True)
+
+
+def test_add_atr_creates_one_column_per_requested_window_without_mutating_input():
+    frame = pd.DataFrame(
+        {
+            "high": [11.0, 15.0, 15.0, 16.0, 17.0],
+            "low": [9.0, 14.0, 13.0, 14.0, 15.0],
+            "close": [10.0, 14.0, 14.0, 15.0, 16.0],
+        }
+    )
+    original = frame.copy(deep=True)
+
+    enriched = add_atr(frame, windows=(3, 4))
+
+    assert "atr_3" in enriched.columns
+    assert "atr_4" in enriched.columns
+    assert enriched["atr_3"].notna().sum() > enriched["atr_4"].notna().sum()
     pd.testing.assert_frame_equal(frame, original)
