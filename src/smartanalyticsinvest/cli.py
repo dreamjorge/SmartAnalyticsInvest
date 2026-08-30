@@ -19,8 +19,26 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("input_csv", help="Local OHLCV CSV input path")
     parser.add_argument("--output", "-o", required=True, help="Output CSV path for enriched rows")
-    parser.add_argument("--sma-window", type=int, default=20, help="SMA window to calculate")
+    parser.add_argument(
+        "--sma-window",
+        type=int,
+        action="append",
+        dest="sma_windows",
+        help="SMA window to calculate (can be repeated for multiple windows)",
+    )
     parser.add_argument("--rsi-window", type=int, default=14, help="RSI window to calculate")
+    parser.add_argument(
+        "--ema-window",
+        type=int,
+        action="append",
+        dest="ema_windows",
+        help="EMA window to calculate (can be repeated for multiple windows)",
+    )
+    parser.add_argument(
+        "--include-daily-returns",
+        action="store_true",
+        help="Include daily percentage returns column in output",
+    )
     return parser
 
 
@@ -34,11 +52,16 @@ def main(argv: list[str] | None = None) -> int:
         return int(exc.code) if isinstance(exc.code, int) else 1
 
     output_path = Path(args.output)
+    sma_windows = tuple(args.sma_windows) if args.sma_windows else (20,)
+    ema_windows = tuple(args.ema_windows) if args.ema_windows else ()
+
     try:
         result = run_csv_pipeline(
             args.input_csv,
-            sma_windows=(args.sma_window,),
+            sma_windows=sma_windows,
             rsi_window=args.rsi_window,
+            ema_windows=ema_windows,
+            include_daily_returns=args.include_daily_returns,
         )
     except FileNotFoundError:
         print(f"Error: could not read input file: {args.input_csv}", file=sys.stderr)
