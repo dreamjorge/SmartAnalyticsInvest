@@ -4,10 +4,12 @@ import pytest
 from smartanalyticsinvest.indicators import (
     add_daily_returns,
     add_ema,
+    add_macd,
     add_rsi,
     add_sma,
     daily_returns,
     exponential_moving_average,
+    macd,
     relative_strength_index,
     simple_moving_average,
 )
@@ -128,3 +130,66 @@ def test_relative_strength_index_declining_series_reaches_zero_after_window():
     assert pd.isna(rsi.iloc[0])
     assert pd.isna(rsi.iloc[1])
     assert rsi.iloc[2] == 0.0
+
+
+def test_macd_matches_hand_computed_ema_difference_and_signal():
+    series = pd.Series([10.0, 11, 12, 11, 13, 14, 13, 15, 16, 15])
+
+    macd_line, signal_line, histogram = macd(series, fast=3, slow=5, signal=2)
+
+    assert macd_line.tolist() == pytest.approx(
+        [
+            0.0,
+            0.166667,
+            0.361111,
+            0.199074,
+            0.445216,
+            0.619727,
+            0.407943,
+            0.602691,
+            0.733825,
+            0.488566,
+        ],
+        rel=1e-4,
+    )
+    assert signal_line.tolist() == pytest.approx(
+        [
+            0.0,
+            0.111111,
+            0.277778,
+            0.225309,
+            0.371914,
+            0.537123,
+            0.451003,
+            0.552129,
+            0.673260,
+            0.550131,
+        ],
+        rel=1e-4,
+    )
+    assert histogram.tolist() == pytest.approx((macd_line - signal_line).tolist(), rel=1e-9)
+
+
+def test_add_macd_creates_columns_without_mutating_input():
+    frame = pd.DataFrame({"close": [10.0, 11, 12, 11, 13, 14, 13, 15, 16, 15]})
+    original = frame.copy(deep=True)
+
+    enriched = add_macd(frame, fast=3, slow=5, signal=2)
+
+    assert list(enriched.columns) == ["close", "macd", "macd_signal", "macd_histogram"]
+    assert enriched["macd"].tolist() == pytest.approx(
+        [
+            0.0,
+            0.166667,
+            0.361111,
+            0.199074,
+            0.445216,
+            0.619727,
+            0.407943,
+            0.602691,
+            0.733825,
+            0.488566,
+        ],
+        rel=1e-4,
+    )
+    pd.testing.assert_frame_equal(frame, original)
