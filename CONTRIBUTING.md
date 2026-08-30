@@ -8,6 +8,8 @@ Use Python 3.12 or newer. From the repository root:
 python3 -m pip install -e '.[dev]'
 python3 -m pytest
 python3 -m ruff check .
+python3 -m ruff format --check .
+python3 -m mypy src/smartanalyticsinvest
 ```
 
 Tests are offline and use local deterministic fixtures only.
@@ -32,5 +34,7 @@ Apply one of the existing `type:*` labels (`type:bug`, `type:feature`,
   description.
 - Keep the PR description's **Changes** and **Testing** sections accurate —
   reviewers rely on the testing section to know what was actually run.
-- Ensure `python3 -m pytest` and `python3 -m ruff check .` pass before
-  requesting review.
+- Ensure `python3 -m pytest`, `python3 -m ruff check .`,
+  `python3 -m ruff format --check .`, and `python3 -m mypy src/smartanalyticsinvest`
+  all pass before requesting review, and check off the PR template's
+  compliance checklist accordingly.
