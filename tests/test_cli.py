@@ -285,3 +285,33 @@ def test_cli_main_accepts_macd_flags(tmp_path):
         "macd_histogram",
     ] == list(written.columns)
     assert not written["macd"].isna().all()
+
+
+def test_cli_main_accepts_bollinger_flags(tmp_path):
+    input_csv = tmp_path / "input.csv"
+    output_csv = tmp_path / "enriched.csv"
+    _write_valid_csv(input_csv)
+
+    exit_code = main(
+        [
+            str(input_csv),
+            "--output",
+            str(output_csv),
+            "--bollinger-window",
+            "5",
+            "--bollinger-num-std",
+            "1.5",
+        ]
+    )
+
+    written = pd.read_csv(output_csv)
+    assert exit_code == 0
+    assert [
+        *REQUIRED_OHLCV_COLUMNS,
+        "sma_20",
+        "rsi_14",
+        "bb_middle_5",
+        "bb_upper_5",
+        "bb_lower_5",
+    ] == list(written.columns)
+    assert not written["bb_middle_5"].isna().all()

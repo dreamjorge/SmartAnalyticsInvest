@@ -53,6 +53,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--macd-fast", type=int, default=12, help="MACD fast EMA window")
     parser.add_argument("--macd-slow", type=int, default=26, help="MACD slow EMA window")
     parser.add_argument("--macd-signal", type=int, default=9, help="MACD signal EMA window")
+    parser.add_argument(
+        "--bollinger-window",
+        type=int,
+        action="append",
+        dest="bollinger_windows",
+        help="Bollinger Bands window to calculate (can be repeated for multiple windows)",
+    )
+    parser.add_argument(
+        "--bollinger-num-std",
+        type=float,
+        default=2.0,
+        help="Number of standard deviations for the Bollinger Bands (default: 2.0)",
+    )
     return parser
 
 
@@ -69,6 +82,7 @@ def main(argv: list[str] | None = None) -> int:
     sma_windows = tuple(args.sma_windows) if args.sma_windows else (20,)
     rsi_windows = tuple(args.rsi_windows) if args.rsi_windows else (14,)
     ema_windows = tuple(args.ema_windows) if args.ema_windows else ()
+    bollinger_windows = tuple(args.bollinger_windows) if args.bollinger_windows else ()
 
     try:
         result = run_csv_pipeline(
@@ -81,6 +95,8 @@ def main(argv: list[str] | None = None) -> int:
             macd_fast=args.macd_fast,
             macd_slow=args.macd_slow,
             macd_signal=args.macd_signal,
+            bollinger_windows=bollinger_windows,
+            bollinger_num_std=args.bollinger_num_std,
         )
     except FileNotFoundError:
         print(f"Error: could not read input file: {args.input_csv}", file=sys.stderr)

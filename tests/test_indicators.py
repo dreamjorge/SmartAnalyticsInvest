@@ -2,11 +2,13 @@ import pandas as pd
 import pytest
 
 from smartanalyticsinvest.indicators import (
+    add_bollinger_bands,
     add_daily_returns,
     add_ema,
     add_macd,
     add_rsi,
     add_sma,
+    bollinger_bands,
     daily_returns,
     exponential_moving_average,
     macd,
@@ -192,4 +194,33 @@ def test_add_macd_creates_columns_without_mutating_input():
         ],
         rel=1e-4,
     )
+    pd.testing.assert_frame_equal(frame, original)
+
+
+def test_bollinger_bands_matches_hand_computed_sma_and_std():
+    series = pd.Series([10.0, 12, 11, 13, 14])
+
+    middle, upper, lower = bollinger_bands(series, window=3, num_std=2.0)
+
+    assert middle.tolist() == pytest.approx(
+        [float("nan"), float("nan"), 11.0, 12.0, 12.666667], nan_ok=True, rel=1e-6
+    )
+    assert upper.tolist() == pytest.approx(
+        [float("nan"), float("nan"), 13.0, 14.0, 15.721717], nan_ok=True, rel=1e-6
+    )
+    assert lower.tolist() == pytest.approx(
+        [float("nan"), float("nan"), 9.0, 10.0, 9.611616], nan_ok=True, rel=1e-6
+    )
+
+
+def test_add_bollinger_bands_creates_columns_per_window_without_mutating_input():
+    frame = pd.DataFrame({"close": [10.0, 12, 11, 13, 14]})
+    original = frame.copy(deep=True)
+
+    enriched = add_bollinger_bands(frame, windows=(3,), num_std=2.0)
+
+    assert list(enriched.columns) == ["close", "bb_middle_3", "bb_upper_3", "bb_lower_3"]
+    assert enriched.loc[2, "bb_middle_3"] == 11.0
+    assert enriched.loc[2, "bb_upper_3"] == 13.0
+    assert enriched.loc[2, "bb_lower_3"] == 9.0
     pd.testing.assert_frame_equal(frame, original)
