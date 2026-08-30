@@ -1,6 +1,7 @@
 import sys
 
 import pandas as pd
+import pytest
 
 from smartanalyticsinvest.cli import main
 from smartanalyticsinvest.schema import REQUIRED_OHLCV_COLUMNS
@@ -347,6 +348,7 @@ def test_cli_main_infers_json_output_format_from_extension(tmp_path):
 
 
 def test_cli_main_infers_parquet_output_format_from_extension(tmp_path):
+    pytest.importorskip("pyarrow")
     input_csv = tmp_path / "input.csv"
     output_parquet = tmp_path / "enriched.parquet"
     _write_valid_csv(input_csv)
