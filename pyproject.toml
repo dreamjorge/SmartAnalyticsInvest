@@ -42,6 +42,9 @@ dev = [
 market-data = [
     "yfinance",
 ]
+file-formats = [
+    "pyarrow",
+]
 
 [project.scripts]
 smartanalyticsinvest = "smartanalyticsinvest.cli:main"

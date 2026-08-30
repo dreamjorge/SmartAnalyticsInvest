@@ -1,3 +1,5 @@
+import sys
+
 import pandas as pd
 
 from smartanalyticsinvest.cli import main
@@ -330,3 +332,58 @@ def test_cli_main_accepts_multiple_atr_windows(tmp_path):
     assert exit_code == 0
     assert [*REQUIRED_OHLCV_COLUMNS, "sma_20", "rsi_14", "atr_5", "atr_10"] == list(written.columns)
     assert not written["atr_5"].isna().all()
+
+
+def test_cli_main_infers_json_output_format_from_extension(tmp_path):
+    input_csv = tmp_path / "input.csv"
+    output_json = tmp_path / "enriched.json"
+    _write_valid_csv(input_csv)
+
+    exit_code = main([str(input_csv), "--output", str(output_json)])
+
+    assert exit_code == 0
+    written = pd.read_json(output_json)
+    assert [*REQUIRED_OHLCV_COLUMNS, "sma_20", "rsi_14"] == list(written.columns)
+
+
+def test_cli_main_infers_parquet_output_format_from_extension(tmp_path):
+    input_csv = tmp_path / "input.csv"
+    output_parquet = tmp_path / "enriched.parquet"
+    _write_valid_csv(input_csv)
+
+    exit_code = main([str(input_csv), "--output", str(output_parquet)])
+
+    assert exit_code == 0
+    written = pd.read_parquet(output_parquet)
+    assert [*REQUIRED_OHLCV_COLUMNS, "sma_20", "rsi_14"] == list(written.columns)
+
+
+def test_cli_main_output_format_flag_overrides_extension(tmp_path):
+    input_csv = tmp_path / "input.csv"
+    output_path = tmp_path / "enriched.out"
+    _write_valid_csv(input_csv)
+
+    exit_code = main([str(input_csv), "--output", str(output_path), "--output-format", "json"])
+
+    assert exit_code == 0
+    written = pd.read_json(output_path)
+    assert [*REQUIRED_OHLCV_COLUMNS, "sma_20", "rsi_14"] == list(written.columns)
+
+
+def test_cli_main_reports_missing_parquet_dependency_without_traceback(
+    tmp_path, monkeypatch, capsys
+):
+    input_csv = tmp_path / "input.csv"
+    output_parquet = tmp_path / "enriched.parquet"
+    _write_valid_csv(input_csv)
+    monkeypatch.setitem(sys.modules, "pyarrow", None)
+    monkeypatch.setitem(sys.modules, "fastparquet", None)
+
+    exit_code = main([str(input_csv), "--output", str(output_parquet)])
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert not output_parquet.exists()
+    assert "error:" in captured.err.lower()
+    assert "pip install -e '.[file-formats]'" in captured.err
+    assert "traceback" not in captured.err.lower()
