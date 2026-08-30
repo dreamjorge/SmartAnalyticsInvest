@@ -59,6 +59,15 @@ result = enrich_ohlcv(cleaned, sma_windows=(20,), rsi_window=14)
 
 The adapter returns the canonical lowercase OHLCV columns (`date`, `open`, `high`, `low`, `close`, `volume`) plus a `ticker` column. Multi-symbol fetches are automatically sorted by ticker and date for consistent processing. It imports `yfinance` lazily and raises a predictable project error with install guidance when the optional extra is not installed or Yahoo returns unusable data.
 
+By default, `fetch_yahoo_ohlcv_many` aborts the whole batch if any symbol fails to fetch. Pass `on_error="skip"` for a best-effort mode that fetches the remaining symbols and reports failures instead of aborting:
+
+```python
+result = fetch_yahoo_ohlcv_many(["AAPL", "DELISTED", "MSFT"], on_error="skip")
+result.attrs["failed_symbols"]  # {"DELISTED": "<error message>"}
+```
+
+A `DataSourceError` is still raised if every symbol in the batch fails.
+
 ## Input CSV schema
 
 Your input CSV must include these exact OHLCV columns:
