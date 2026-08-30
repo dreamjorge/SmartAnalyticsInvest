@@ -2,7 +2,7 @@
 
 ## Local setup
 
-Use Python 3.12 or newer. From the repository root:
+Use Python 3.14 or newer. From the repository root:
 
 ```bash
 python3 -m pip install -e '.[dev]'
