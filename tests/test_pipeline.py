@@ -297,3 +297,54 @@ def test_enrich_ohlcv_optionally_adds_macd_grouped_by_ticker():
         "macd_signal",
         "macd_histogram",
     ] == list(result.columns)
+
+
+def test_enrich_ohlcv_optionally_adds_bollinger_bands_without_ticker():
+    rows = [
+        ["2024-01-01", 9, 11, 8, 10, 100],
+        ["2024-01-02", 10, 12, 9, 11, 100],
+        ["2024-01-03", 11, 13, 10, 12, 100],
+        ["2024-01-04", 10, 12, 9, 11, 100],
+        ["2024-01-05", 12, 14, 11, 13, 100],
+    ]
+    cleaned = clean_ohlcv(pd.DataFrame(rows, columns=REQUIRED_OHLCV_COLUMNS))
+
+    result = enrich_ohlcv(cleaned, sma_windows=(2,), bollinger_windows=(3,))
+
+    assert [
+        *REQUIRED_OHLCV_COLUMNS,
+        "sma_2",
+        "rsi_14",
+        "bb_middle_3",
+        "bb_upper_3",
+        "bb_lower_3",
+    ] == list(result.columns)
+    assert result.loc[2, "bb_middle_3"] == 11.0
+
+
+def test_enrich_ohlcv_optionally_adds_bollinger_bands_grouped_by_ticker():
+    cleaned = clean_ohlcv(
+        pd.DataFrame(
+            [
+                ["2024-01-01", 9, 11, 8, 10, 100, "A"],
+                ["2024-01-02", 10, 12, 9, 11, 100, "A"],
+                ["2024-01-03", 11, 13, 10, 12, 100, "A"],
+                ["2024-01-04", 10, 12, 9, 11, 100, "A"],
+                ["2024-01-05", 12, 14, 11, 13, 100, "A"],
+            ],
+            columns=[*REQUIRED_OHLCV_COLUMNS, "ticker"],
+        )
+    )
+
+    result = enrich_ohlcv(cleaned, sma_windows=(2,), bollinger_windows=(3,))
+
+    assert [
+        *REQUIRED_OHLCV_COLUMNS,
+        "ticker",
+        "sma_2",
+        "rsi_14",
+        "bb_middle_3",
+        "bb_upper_3",
+        "bb_lower_3",
+    ] == list(result.columns)
+    assert result.loc[2, "bb_middle_3"] == 11.0

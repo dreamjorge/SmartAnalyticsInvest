@@ -129,3 +129,35 @@ def add_macd(
     enriched["macd_signal"] = signal_line
     enriched["macd_histogram"] = histogram
     return enriched
+
+
+def bollinger_bands(
+    series: pd.Series, window: int = 20, num_std: float = 2.0
+) -> tuple[pd.Series, pd.Series, pd.Series]:
+    """Return the middle (SMA), upper, and lower Bollinger Bands for the requested window."""
+
+    valid_window = _validate_window(window)
+    middle = simple_moving_average(series, valid_window)
+    rolling_std = series.rolling(window=valid_window, min_periods=valid_window).std()
+    upper = middle + num_std * rolling_std
+    lower = middle - num_std * rolling_std
+    return middle, upper, lower
+
+
+def add_bollinger_bands(
+    frame: pd.DataFrame,
+    *,
+    price_column: str = "close",
+    windows: tuple[int, ...] = (20,),
+    num_std: float = 2.0,
+) -> pd.DataFrame:
+    """Return a copy enriched with bb_middle/bb_upper/bb_lower columns per window."""
+
+    enriched = frame.copy()
+    for window in windows:
+        valid_window = _validate_window(window)
+        middle, upper, lower = bollinger_bands(enriched[price_column], valid_window, num_std)
+        enriched[f"bb_middle_{valid_window}"] = middle
+        enriched[f"bb_upper_{valid_window}"] = upper
+        enriched[f"bb_lower_{valid_window}"] = lower
+    return enriched

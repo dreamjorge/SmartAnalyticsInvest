@@ -125,6 +125,12 @@ This adds columns such as `ema_12`, `ema_26`, and `daily_return`; the first dail
 
 `include_macd=True` adds `macd`, `macd_signal`, and `macd_histogram` columns using the standard 12/26/9 EMA windows; override them with `macd_fast`, `macd_slow`, and `macd_signal`.
 
+`bollinger_windows` accepts one or more SMA windows to produce `bb_middle_<window>`, `bb_upper_<window>`, and `bb_lower_<window>` columns (upper/lower are the middle band plus/minus `bollinger_num_std` standard deviations, default `2.0`):
+
+```python
+result = run_csv_pipeline("input.csv", bollinger_windows=(20,))
+```
+
 ## CLI usage
 
 Run the local CSV pipeline and write an enriched CSV:
@@ -143,6 +149,12 @@ Add `--include-macd` for `macd`, `macd_signal`, and `macd_histogram` columns (de
 
 ```bash
 smartanalyticsinvest input.csv --output enriched.csv --include-macd
+```
+
+Add `--bollinger-window` (repeatable, like `--sma-window`) for `bb_middle_<window>`/`bb_upper_<window>`/`bb_lower_<window>` columns, optionally overriding the band width with `--bollinger-num-std`:
+
+```bash
+smartanalyticsinvest input.csv --output enriched.csv --bollinger-window 20 --bollinger-num-std 2.5
 ```
 
 You can also run the module directly:
