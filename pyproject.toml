@@ -58,6 +58,9 @@ Issues = "https://github.com/dreamjorge/SmartAnalyticsInvest/issues"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+smartanalyticsinvest = ["py.typed"]
+
 [tool.ruff]
 target-version = "py314"
 line-length = 100
