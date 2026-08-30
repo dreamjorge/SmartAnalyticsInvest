@@ -90,6 +90,20 @@ result.attrs["failed_symbols"]  # {"DELISTED": "<error message>"}
 
 A `DataSourceError` is still raised if every symbol in the batch fails.
 
+## Optional StockStreamDB historical data loader
+
+If you already collect historical OHLCV data with [StockStreamDB](https://github.com/dreamjorge/StockStreamDB) (a separate project that fetches Yahoo Finance data, fundamentals, and news sentiment into a local SQLite database), load it directly instead of re-fetching:
+
+```python
+from smartanalyticsinvest.data_sources import load_stockstreamdb
+from smartanalyticsinvest.pipeline import clean_ohlcv
+
+raw = load_stockstreamdb("stockstreamdb.db", tickers=["AAPL", "MSFT"])
+cleaned = clean_ohlcv(raw)
+```
+
+This reads StockStreamDB's `stock_prices` table directly via the standard-library `sqlite3` module — no extra dependency, and StockStreamDB itself doesn't need to be installed, only its database file. Pass `include_fundamentals=True`/`include_sentiment=True` to left-join StockStreamDB's `fundamentals` (P/E ratio, EPS, market cap, revenue, net income, total assets) and `sentiment_analysis` (average sentiment score per ticker/date) tables onto the result as extra feature columns, useful for downstream model training.
+
 ## Input CSV schema
 
 Your input CSV must include these exact OHLCV columns:

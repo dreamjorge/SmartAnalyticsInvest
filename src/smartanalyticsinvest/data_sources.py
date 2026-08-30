@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import sqlite3
 from importlib import import_module
+from pathlib import Path
 from typing import Any, Literal
 
 import pandas as pd
@@ -12,6 +14,16 @@ from smartanalyticsinvest.schema import REQUIRED_OHLCV_COLUMNS, require_ohlcv_co
 
 _INSTALL_GUIDANCE = "Install optional market data support with: pip install -e '.[market-data]'"
 _REQUIRED_COLUMN_SET = set(REQUIRED_OHLCV_COLUMNS)
+
+_STOCKSTREAMDB_PRICE_QUERY = "SELECT ticker, date, open, high, low, close, volume FROM stock_prices"
+_STOCKSTREAMDB_FUNDAMENTALS_QUERY = (
+    "SELECT ticker, date, pe_ratio, eps, market_cap, revenue, net_income, total_assets "
+    "FROM fundamentals"
+)
+_STOCKSTREAMDB_SENTIMENT_QUERY = (
+    "SELECT ticker, date, AVG(sentiment_score) AS sentiment_score "
+    "FROM sentiment_analysis GROUP BY ticker, date"
+)
 
 
 def _import_yfinance() -> Any:
@@ -142,3 +154,56 @@ def fetch_yahoo_ohlcv_many(
     result = concatenated.sort_values(by=["ticker", "date"]).reset_index(drop=True)
     result.attrs["failed_symbols"] = failed_symbols
     return result
+
+
+def load_stockstreamdb(
+    db_path: str | Path,
+    *,
+    tickers: list[str] | tuple[str, ...] | None = None,
+    include_fundamentals: bool = False,
+    include_sentiment: bool = False,
+) -> pd.DataFrame:
+    """Load canonical OHLCV rows from a StockStreamDB SQLite database.
+
+    Reads the ``stock_prices`` table produced by
+    `StockStreamDB <https://github.com/dreamjorge/StockStreamDB>`_, whose schema
+    (``ticker, date, open, high, low, close, volume``) already matches this project's
+    canonical OHLCV shape. Only the ``sqlite3`` standard library module is used, so
+    this adapter needs no extra dependency and does not require StockStreamDB itself
+    to be installed.
+
+    With ``include_fundamentals``/``include_sentiment``, the ``fundamentals`` and
+    ``sentiment_analysis`` tables are left-joined onto the result by ``ticker``/``date``
+    (sentiment scores are averaged per ticker/date), adding extra feature columns
+    useful for downstream model training.
+    """
+
+    db_file = Path(db_path)
+    if not db_file.is_file():
+        raise FileNotFoundError(db_file)
+
+    try:
+        with sqlite3.connect(str(db_file)) as connection:
+            frame = pd.read_sql_query(_STOCKSTREAMDB_PRICE_QUERY, connection, parse_dates=["date"])
+
+            if tickers is not None:
+                frame = frame[frame["ticker"].isin(tickers)]
+
+            if frame.empty:
+                raise DataSourceError(f"No OHLCV data returned from {db_file}")
+
+            if include_fundamentals:
+                fundamentals = pd.read_sql_query(
+                    _STOCKSTREAMDB_FUNDAMENTALS_QUERY, connection, parse_dates=["date"]
+                )
+                frame = frame.merge(fundamentals, on=["ticker", "date"], how="left")
+
+            if include_sentiment:
+                sentiment = pd.read_sql_query(
+                    _STOCKSTREAMDB_SENTIMENT_QUERY, connection, parse_dates=["date"]
+                )
+                frame = frame.merge(sentiment, on=["ticker", "date"], how="left")
+    except (sqlite3.DatabaseError, pd.errors.DatabaseError) as exc:
+        raise DataSourceError(f"Could not read StockStreamDB database {db_file}: {exc}") from exc
+
+    return frame.sort_values(by=["ticker", "date"]).reset_index(drop=True)

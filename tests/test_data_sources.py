@@ -1,3 +1,4 @@
+import sqlite3
 import sys
 from types import SimpleNamespace
 
@@ -6,6 +7,68 @@ import pytest
 
 from smartanalyticsinvest.errors import DataSourceError
 from smartanalyticsinvest.pipeline import clean_ohlcv
+
+
+def _build_stockstreamdb_fixture(db_path):
+    with sqlite3.connect(db_path) as connection:
+        connection.executescript(
+            """
+            CREATE TABLE stock_prices (
+                price_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ticker TEXT,
+                date DATE,
+                open REAL,
+                high REAL,
+                low REAL,
+                close REAL,
+                adjusted_close REAL,
+                volume INTEGER
+            );
+            CREATE TABLE fundamentals (
+                fundamental_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ticker TEXT,
+                date DATE,
+                pe_ratio REAL,
+                eps REAL,
+                market_cap INTEGER,
+                revenue INTEGER,
+                net_income INTEGER,
+                total_assets INTEGER
+            );
+            CREATE TABLE sentiment_analysis (
+                sentiment_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ticker TEXT,
+                news_title TEXT,
+                news_content TEXT,
+                sentiment_score REAL,
+                date DATE
+            );
+            """
+        )
+        connection.executemany(
+            "INSERT INTO stock_prices "
+            "(ticker, date, open, high, low, close, adjusted_close, volume) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                ("AAPL", "2024-01-02", 10, 11, 9, 10, 9.9, 100),
+                ("AAPL", "2024-01-01", 9, 10, 8, 9, 8.9, 90),
+                ("MSFT", "2024-01-01", 20, 21, 19, 20, 19.9, 200),
+            ],
+        )
+        connection.executemany(
+            "INSERT INTO fundamentals "
+            "(ticker, date, pe_ratio, eps, market_cap, revenue, net_income, total_assets) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            [("AAPL", "2024-01-02", 28.5, 6.1, 2_800_000_000, 1, 2, 3)],
+        )
+        connection.executemany(
+            "INSERT INTO sentiment_analysis "
+            "(ticker, date, news_title, news_content, sentiment_score) VALUES (?, ?, ?, ?, ?)",
+            [
+                ("AAPL", "2024-01-02", "Headline A", "Body A", 0.8),
+                ("AAPL", "2024-01-02", "Headline B", "Body B", 0.4),
+            ],
+        )
 
 
 def test_fetch_yahoo_ohlcv_normalizes_columns_and_ticker(monkeypatch):
@@ -243,3 +306,79 @@ def test_fetch_yahoo_ohlcv_many_best_effort_mode_still_raises_if_all_symbols_fai
 
     with pytest.raises(DataSourceError, match="No OHLCV data returned for any of 2 symbols"):
         fetch_yahoo_ohlcv_many(["BAD", "WORSE"], on_error="skip")
+
+
+def test_load_stockstreamdb_returns_canonical_ohlcv_sorted_by_ticker_and_date(tmp_path):
+    from smartanalyticsinvest.data_sources import load_stockstreamdb
+
+    db_path = tmp_path / "stockstream.db"
+    _build_stockstreamdb_fixture(db_path)
+
+    result = load_stockstreamdb(db_path)
+
+    assert list(result.columns) == ["ticker", "date", "open", "high", "low", "close", "volume"]
+    assert result["ticker"].tolist() == ["AAPL", "AAPL", "MSFT"]
+    assert result["date"].tolist() == list(
+        pd.to_datetime(["2024-01-01", "2024-01-02", "2024-01-01"])
+    )
+    assert clean_ohlcv(result).shape == (3, 7)
+
+
+def test_load_stockstreamdb_filters_by_ticker(tmp_path):
+    from smartanalyticsinvest.data_sources import load_stockstreamdb
+
+    db_path = tmp_path / "stockstream.db"
+    _build_stockstreamdb_fixture(db_path)
+
+    result = load_stockstreamdb(db_path, tickers=["MSFT"])
+
+    assert result["ticker"].unique().tolist() == ["MSFT"]
+
+
+def test_load_stockstreamdb_joins_fundamentals_and_sentiment(tmp_path):
+    from smartanalyticsinvest.data_sources import load_stockstreamdb
+
+    db_path = tmp_path / "stockstream.db"
+    _build_stockstreamdb_fixture(db_path)
+
+    result = load_stockstreamdb(db_path, include_fundamentals=True, include_sentiment=True)
+
+    aapl_day2 = result[(result["ticker"] == "AAPL") & (result["date"] == "2024-01-02")].iloc[0]
+    assert aapl_day2["pe_ratio"] == 28.5
+    assert aapl_day2["sentiment_score"] == pytest.approx(0.6)
+
+    aapl_day1 = result[(result["ticker"] == "AAPL") & (result["date"] == "2024-01-01")].iloc[0]
+    assert pd.isna(aapl_day1["pe_ratio"])
+    assert pd.isna(aapl_day1["sentiment_score"])
+
+
+def test_load_stockstreamdb_raises_for_missing_database_file(tmp_path):
+    from smartanalyticsinvest.data_sources import load_stockstreamdb
+
+    with pytest.raises(FileNotFoundError):
+        load_stockstreamdb(tmp_path / "does-not-exist.db")
+
+
+def test_load_stockstreamdb_raises_for_empty_price_table(tmp_path):
+    from smartanalyticsinvest.data_sources import load_stockstreamdb
+
+    db_path = tmp_path / "empty.db"
+    with sqlite3.connect(db_path) as connection:
+        connection.execute(
+            "CREATE TABLE stock_prices (ticker TEXT, date DATE, open REAL, high REAL, "
+            "low REAL, close REAL, adjusted_close REAL, volume INTEGER)"
+        )
+
+    with pytest.raises(DataSourceError, match="No OHLCV data returned"):
+        load_stockstreamdb(db_path)
+
+
+def test_load_stockstreamdb_raises_predictable_error_for_wrong_schema(tmp_path):
+    from smartanalyticsinvest.data_sources import load_stockstreamdb
+
+    db_path = tmp_path / "wrong_schema.db"
+    with sqlite3.connect(db_path) as connection:
+        connection.execute("CREATE TABLE something_else (id INTEGER)")
+
+    with pytest.raises(DataSourceError, match="Could not read StockStreamDB database"):
+        load_stockstreamdb(db_path)
