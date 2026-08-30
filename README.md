@@ -26,6 +26,14 @@ python3 -m pytest
 
 The test suite is offline and uses local deterministic fixtures only.
 
+## Static type checking
+
+```bash
+python3 -m mypy src/smartanalyticsinvest
+```
+
+Runs in strict mode (see `[tool.mypy]` in `pyproject.toml`) and in CI alongside Ruff and pytest.
+
 ## Optional experimental Yahoo Finance adapter
 
 Core usage is local-CSV-first and does not require live market data packages. An optional experimental Yahoo Finance adapter is available for callers that choose to install `yfinance`:
