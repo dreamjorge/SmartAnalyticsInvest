@@ -13,11 +13,22 @@ from smartanalyticsinvest.schema import NUMERIC_OHLCV_COLUMNS, require_ohlcv_col
 
 _PRICE_COLUMNS = ("open", "high", "low", "close")
 _TICKER_COLUMN = "ticker"
+_MAX_REPORTED_ROWS = 20
 
 
 def _raise_if_empty(frame: pd.DataFrame) -> None:
     if frame.empty:
         raise EmptyDataError("No OHLCV rows available after cleaning")
+
+
+def _format_row_indices(indices: list, limit: int = _MAX_REPORTED_ROWS) -> str:
+    """Return a bounded, human-readable summary of row indices for error messages."""
+
+    shown = ", ".join(str(index) for index in indices[:limit])
+    remaining = len(indices) - limit
+    if remaining > 0:
+        return f"{shown} (and {remaining} more, {len(indices)} total)"
+    return shown
 
 
 def _has_ticker_column(frame: pd.DataFrame) -> bool:
@@ -27,13 +38,13 @@ def _has_ticker_column(frame: pd.DataFrame) -> bool:
 def _normalize_ticker_values(frame: pd.DataFrame) -> pd.DataFrame:
     null_mask = frame[_TICKER_COLUMN].isna()
     if bool(null_mask.any()):
-        rows = ", ".join(str(index) for index in frame.index[null_mask].tolist())
+        rows = _format_row_indices(frame.index[null_mask].tolist())
         raise DataCleaningError(f"Found invalid ticker values in rows: {rows}")
 
     normalized = frame[_TICKER_COLUMN].astype(str).str.strip()
     empty_mask = normalized.eq("")
     if bool(empty_mask.any()):
-        rows = ", ".join(str(index) for index in frame.index[empty_mask].tolist())
+        rows = _format_row_indices(frame.index[empty_mask].tolist())
         raise DataCleaningError(f"Found invalid ticker values in rows: {rows}")
 
     frame[_TICKER_COLUMN] = normalized
@@ -71,7 +82,7 @@ def clean_ohlcv(frame: pd.DataFrame) -> pd.DataFrame:
     invalid_mask |= cleaned[list(_PRICE_COLUMNS)].le(0).any(axis=1)
     invalid_mask |= cleaned["volume"].lt(0)
     if bool(invalid_mask.any()):
-        rows = ", ".join(str(index) for index in cleaned.index[invalid_mask].tolist())
+        rows = _format_row_indices(cleaned.index[invalid_mask].tolist())
         raise DataCleaningError(f"Found invalid required OHLCV values in rows: {rows}")
 
     inconsistent_mask = (
@@ -82,7 +93,7 @@ def clean_ohlcv(frame: pd.DataFrame) -> pd.DataFrame:
         | cleaned["low"].gt(cleaned["close"])
     )
     if bool(inconsistent_mask.any()):
-        rows = ", ".join(str(index) for index in cleaned.index[inconsistent_mask].tolist())
+        rows = _format_row_indices(cleaned.index[inconsistent_mask].tolist())
         raise DataCleaningError(f"Found inconsistent OHLCV values in rows: {rows}")
 
     if _has_ticker_column(cleaned):
