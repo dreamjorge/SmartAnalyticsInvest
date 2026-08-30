@@ -164,19 +164,19 @@ def _add_grouped_macd(
     slow: int = 26,
     signal: int = 9,
 ) -> pd.DataFrame:
-    from smartanalyticsinvest.indicators import macd as compute_macd
+    from smartanalyticsinvest.indicators import exponential_moving_average
 
     enriched = frame.copy()
     grouped_prices = enriched.groupby(_TICKER_COLUMN, sort=False)[price_column]
-    enriched["macd"] = grouped_prices.transform(
-        lambda series: compute_macd(series, fast, slow, signal)[0]
+    fast_ema = grouped_prices.transform(lambda series: exponential_moving_average(series, fast))
+    slow_ema = grouped_prices.transform(lambda series: exponential_moving_average(series, slow))
+    macd_line = fast_ema - slow_ema
+    signal_line = macd_line.groupby(enriched[_TICKER_COLUMN], sort=False).transform(
+        lambda series: exponential_moving_average(series, signal)
     )
-    enriched["macd_signal"] = grouped_prices.transform(
-        lambda series: compute_macd(series, fast, slow, signal)[1]
-    )
-    enriched["macd_histogram"] = grouped_prices.transform(
-        lambda series: compute_macd(series, fast, slow, signal)[2]
-    )
+    enriched["macd"] = macd_line
+    enriched["macd_signal"] = signal_line
+    enriched["macd_histogram"] = macd_line - signal_line
     return enriched
 
 
@@ -187,20 +187,23 @@ def _add_grouped_bollinger_bands(
     windows: tuple[int, ...] = (),
     num_std: float = 2.0,
 ) -> pd.DataFrame:
-    from smartanalyticsinvest.indicators import bollinger_bands as compute_bollinger_bands
+    from smartanalyticsinvest.indicators import _validate_num_std, simple_moving_average
 
+    valid_num_std = _validate_num_std(num_std)
     enriched = frame.copy()
     grouped_prices = enriched.groupby(_TICKER_COLUMN, sort=False)[price_column]
     for window in windows:
-        enriched[f"bb_middle_{window}"] = grouped_prices.transform(
-            lambda series, window=window: compute_bollinger_bands(series, window, num_std)[0]
+        middle = grouped_prices.transform(
+            lambda series, window=window: simple_moving_average(series, window)
         )
-        enriched[f"bb_upper_{window}"] = grouped_prices.transform(
-            lambda series, window=window: compute_bollinger_bands(series, window, num_std)[1]
+        rolling_std = grouped_prices.transform(
+            lambda series, window=window: series.rolling(window=window, min_periods=window).std(
+                ddof=0
+            )
         )
-        enriched[f"bb_lower_{window}"] = grouped_prices.transform(
-            lambda series, window=window: compute_bollinger_bands(series, window, num_std)[2]
-        )
+        enriched[f"bb_middle_{window}"] = middle
+        enriched[f"bb_upper_{window}"] = middle + valid_num_std * rolling_std
+        enriched[f"bb_lower_{window}"] = middle - valid_num_std * rolling_std
     return enriched
 
 

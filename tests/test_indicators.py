@@ -209,11 +209,27 @@ def test_bollinger_bands_matches_hand_computed_sma_and_std():
         [float("nan"), float("nan"), 11.0, 12.0, 12.666667], nan_ok=True, rel=1e-6
     )
     assert upper.tolist() == pytest.approx(
-        [float("nan"), float("nan"), 13.0, 14.0, 15.721717], nan_ok=True, rel=1e-6
+        [float("nan"), float("nan"), 12.632993, 13.632993, 15.161105], nan_ok=True, rel=1e-6
     )
     assert lower.tolist() == pytest.approx(
-        [float("nan"), float("nan"), 9.0, 10.0, 9.611616], nan_ok=True, rel=1e-6
+        [float("nan"), float("nan"), 9.367007, 10.367007, 10.172228], nan_ok=True, rel=1e-6
     )
+
+
+def test_bollinger_bands_supports_window_of_one_with_population_std():
+    series = pd.Series([10.0, 12.0, 11.0])
+
+    middle, upper, lower = bollinger_bands(series, window=1, num_std=2.0)
+
+    assert middle.tolist() == [10.0, 12.0, 11.0]
+    assert upper.tolist() == [10.0, 12.0, 11.0]
+    assert lower.tolist() == [10.0, 12.0, 11.0]
+
+
+@pytest.mark.parametrize("num_std", [0, -1, float("nan"), float("inf"), "2"])
+def test_bollinger_bands_rejects_invalid_num_std(num_std):
+    with pytest.raises(ValueError, match="num_std"):
+        bollinger_bands(pd.Series([10.0, 12.0, 11.0]), window=2, num_std=num_std)
 
 
 def test_add_bollinger_bands_creates_columns_per_window_without_mutating_input():
@@ -224,8 +240,8 @@ def test_add_bollinger_bands_creates_columns_per_window_without_mutating_input()
 
     assert list(enriched.columns) == ["close", "bb_middle_3", "bb_upper_3", "bb_lower_3"]
     assert enriched.loc[2, "bb_middle_3"] == 11.0
-    assert enriched.loc[2, "bb_upper_3"] == 13.0
-    assert enriched.loc[2, "bb_lower_3"] == 9.0
+    assert enriched.loc[2, "bb_upper_3"] == pytest.approx(12.632993, rel=1e-6)
+    assert enriched.loc[2, "bb_lower_3"] == pytest.approx(9.367007, rel=1e-6)
     pd.testing.assert_frame_equal(frame, original)
 
 

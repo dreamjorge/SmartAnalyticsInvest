@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 import pandas as pd
 
 
@@ -9,6 +11,15 @@ def _validate_window(window: int) -> int:
     if not isinstance(window, int) or isinstance(window, bool) or window <= 0:
         raise ValueError("indicator window must be a positive integer")
     return window
+
+
+def _validate_num_std(num_std: float) -> float:
+    if isinstance(num_std, bool) or not isinstance(num_std, (int, float)):
+        raise ValueError("num_std must be a positive finite number")
+    value = float(num_std)
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError("num_std must be a positive finite number")
+    return value
 
 
 def simple_moving_average(series: pd.Series, window: int) -> pd.Series:
@@ -137,10 +148,11 @@ def bollinger_bands(
     """Return the middle (SMA), upper, and lower Bollinger Bands for the requested window."""
 
     valid_window = _validate_window(window)
+    valid_num_std = _validate_num_std(num_std)
     middle = simple_moving_average(series, valid_window)
-    rolling_std = series.rolling(window=valid_window, min_periods=valid_window).std()
-    upper = middle + num_std * rolling_std
-    lower = middle - num_std * rolling_std
+    rolling_std = series.rolling(window=valid_window, min_periods=valid_window).std(ddof=0)
+    upper = middle + valid_num_std * rolling_std
+    lower = middle - valid_num_std * rolling_std
     return middle, upper, lower
 
 

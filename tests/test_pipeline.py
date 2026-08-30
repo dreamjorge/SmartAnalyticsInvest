@@ -386,3 +386,32 @@ def test_enrich_ohlcv_atr_does_not_leak_previous_close_across_tickers():
 
     b_row = result.loc[result["ticker"].eq("B")].iloc[0]
     assert b_row["atr_1"] == pytest.approx(10.0)
+
+
+def test_enrich_ohlcv_bollinger_bands_supports_window_of_one_grouped_by_ticker():
+    cleaned = clean_ohlcv(
+        pd.DataFrame(
+            [
+                ["2024-01-01", 9, 11, 8, 10, 100, "A"],
+                ["2024-01-02", 10, 12, 9, 11, 100, "A"],
+            ],
+            columns=[*REQUIRED_OHLCV_COLUMNS, "ticker"],
+        )
+    )
+
+    result = enrich_ohlcv(cleaned, bollinger_windows=(1,))
+
+    assert result["bb_middle_1"].tolist() == [10.0, 11.0]
+    assert result["bb_upper_1"].tolist() == [10.0, 11.0]
+    assert result["bb_lower_1"].tolist() == [10.0, 11.0]
+
+
+def test_enrich_ohlcv_rejects_invalid_bollinger_num_std():
+    rows = [
+        ["2024-01-01", 9, 11, 8, 10, 100],
+        ["2024-01-02", 10, 12, 9, 11, 100],
+    ]
+    cleaned = clean_ohlcv(pd.DataFrame(rows, columns=REQUIRED_OHLCV_COLUMNS))
+
+    with pytest.raises(ValueError, match="num_std"):
+        enrich_ohlcv(cleaned, bollinger_windows=(1,), bollinger_num_std=-1)
