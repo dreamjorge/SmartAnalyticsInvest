@@ -71,12 +71,15 @@ def add_ema(
     return enriched
 
 
-def add_rsi(frame: pd.DataFrame, *, price_column: str = "close", window: int = 14) -> pd.DataFrame:
-    """Return a copy enriched with one RSI column for the requested window."""
+def add_rsi(
+    frame: pd.DataFrame, *, price_column: str = "close", windows: tuple[int, ...] = (14,)
+) -> pd.DataFrame:
+    """Return a copy enriched with one RSI column per requested window."""
 
-    valid_window = _validate_window(window)
     enriched = frame.copy()
-    enriched[f"rsi_{valid_window}"] = relative_strength_index(enriched[price_column], valid_window)
+    for window in windows:
+        valid_window = _validate_window(window)
+        enriched[f"rsi_{valid_window}"] = relative_strength_index(enriched[price_column], valid_window)
     return enriched
 
 

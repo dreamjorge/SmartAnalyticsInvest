@@ -52,7 +52,7 @@ from smartanalyticsinvest.pipeline import clean_ohlcv, enrich_ohlcv
 
 raw = fetch_yahoo_ohlcv_many(["AAPL", "MSFT", "GOOGL"], period="1mo", interval="1d")
 cleaned = clean_ohlcv(raw)
-result = enrich_ohlcv(cleaned, sma_windows=(20,), rsi_window=14)
+result = enrich_ohlcv(cleaned, sma_windows=(20,), rsi_windows=(14,))
 ```
 
 The adapter returns the canonical lowercase OHLCV columns (`date`, `open`, `high`, `low`, `close`, `volume`) plus a `ticker` column. Multi-symbol fetches are automatically sorted by ticker and date for consistent processing. It imports `yfinance` lazily and raises a predictable project error with install guidance when the optional extra is not installed or Yahoo returns unusable data.
@@ -81,13 +81,13 @@ from smartanalyticsinvest.pipeline import run_csv_pipeline
 result = run_csv_pipeline(
     "input.csv",
     sma_windows=(20,),
-    rsi_window=14,
+    rsi_windows=(14,),
     ema_windows=(12, 26),
     include_daily_returns=True,
 )
 ```
 
-This adds columns such as `ema_12`, `ema_26`, and `daily_return`; the first daily return in each series is missing.
+This adds columns such as `ema_12`, `ema_26`, and `daily_return`; the first daily return in each series is missing. Like `sma_windows` and `ema_windows`, `rsi_windows` accepts multiple windows (e.g. `rsi_windows=(7, 14)`) to produce one `rsi_<window>` column per window.
 
 ## CLI usage
 
@@ -95,6 +95,12 @@ Run the local CSV pipeline and write an enriched CSV:
 
 ```bash
 smartanalyticsinvest input.csv --output enriched.csv --sma-window 20 --rsi-window 14
+```
+
+`--rsi-window` is repeatable, like `--sma-window` and `--ema-window`:
+
+```bash
+smartanalyticsinvest input.csv --output enriched.csv --rsi-window 7 --rsi-window 14
 ```
 
 You can also run the module directly:

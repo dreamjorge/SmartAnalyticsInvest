@@ -26,7 +26,13 @@ def build_parser() -> argparse.ArgumentParser:
         dest="sma_windows",
         help="SMA window to calculate (can be repeated for multiple windows)",
     )
-    parser.add_argument("--rsi-window", type=int, default=14, help="RSI window to calculate")
+    parser.add_argument(
+        "--rsi-window",
+        type=int,
+        action="append",
+        dest="rsi_windows",
+        help="RSI window to calculate (can be repeated for multiple windows)",
+    )
     parser.add_argument(
         "--ema-window",
         type=int,
@@ -53,13 +59,14 @@ def main(argv: list[str] | None = None) -> int:
 
     output_path = Path(args.output)
     sma_windows = tuple(args.sma_windows) if args.sma_windows else (20,)
+    rsi_windows = tuple(args.rsi_windows) if args.rsi_windows else (14,)
     ema_windows = tuple(args.ema_windows) if args.ema_windows else ()
 
     try:
         result = run_csv_pipeline(
             args.input_csv,
             sma_windows=sma_windows,
-            rsi_window=args.rsi_window,
+            rsi_windows=rsi_windows,
             ema_windows=ema_windows,
             include_daily_returns=args.include_daily_returns,
         )
