@@ -4,6 +4,8 @@ SmartAnalyticsInvest MVP is a deterministic, local CSV analytics package for OHL
 
 This MVP does not implement machine-learning predictions, trading recommendations, dashboards, web UI, required live network data fetching, or portfolio/risk engines.
 
+See `CONTRIBUTING.md` for local setup, issue conventions, and pull request expectations.
+
 ## Release readiness
 
 Version `0.1.0` is the initial local-first release candidate. See `CHANGELOG.md` for the release summary; core tests are offline and the Yahoo Finance adapter remains optional through the `market-data` extra.
