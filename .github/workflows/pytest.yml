@@ -33,5 +33,8 @@ jobs:
       - name: Check formatting with Ruff
         run: python -m ruff format --check .
 
+      - name: Run mypy
+        run: python -m mypy src/smartanalyticsinvest
+
       - name: Run tests
         run: python -m pytest -q

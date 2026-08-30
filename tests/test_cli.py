@@ -228,6 +228,20 @@ def test_cli_main_accepts_combined_flags(tmp_path):
     assert expected_columns == list(written.columns)
 
 
+def test_cli_main_accepts_multiple_rsi_windows(tmp_path):
+    input_csv = tmp_path / "input.csv"
+    output_csv = tmp_path / "enriched.csv"
+    _write_valid_csv(input_csv)
+
+    exit_code = main(
+        [str(input_csv), "--output", str(output_csv), "--rsi-window", "7", "--rsi-window", "21"]
+    )
+
+    written = pd.read_csv(output_csv)
+    assert exit_code == 0
+    assert [*REQUIRED_OHLCV_COLUMNS, "sma_20", "rsi_7", "rsi_21"] == list(written.columns)
+
+
 def test_cli_main_default_sma_window_when_not_specified(tmp_path):
     input_csv = tmp_path / "input.csv"
     output_csv = tmp_path / "enriched.csv"

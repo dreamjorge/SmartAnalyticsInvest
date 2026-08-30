@@ -4,6 +4,8 @@ SmartAnalyticsInvest MVP is a deterministic, local CSV analytics package for OHL
 
 This MVP does not implement machine-learning predictions, trading recommendations, dashboards, web UI, required live network data fetching, or portfolio/risk engines.
 
+See `CONTRIBUTING.md` for local setup, issue conventions, and pull request expectations.
+
 ## Release readiness
 
 Version `0.1.0` is the initial local-first release candidate. See `CHANGELOG.md` for the release summary; core tests are offline and the Yahoo Finance adapter remains optional through the `market-data` extra.
@@ -38,6 +40,14 @@ pip install pre-commit
 pre-commit install
 ```
 
+## Static type checking
+
+```bash
+python3 -m mypy src/smartanalyticsinvest
+```
+
+Runs in strict mode (see `[tool.mypy]` in `pyproject.toml`) and in CI alongside Ruff and pytest.
+
 ## Optional experimental Yahoo Finance adapter
 
 Core usage is local-CSV-first and does not require live market data packages. An optional experimental Yahoo Finance adapter is available for callers that choose to install `yfinance`:
@@ -66,10 +76,19 @@ from smartanalyticsinvest.pipeline import clean_ohlcv, enrich_ohlcv
 
 raw = fetch_yahoo_ohlcv_many(["AAPL", "MSFT", "GOOGL"], period="1mo", interval="1d")
 cleaned = clean_ohlcv(raw)
-result = enrich_ohlcv(cleaned, sma_windows=(20,), rsi_window=14)
+result = enrich_ohlcv(cleaned, sma_windows=(20,), rsi_windows=(14,))
 ```
 
 The adapter returns the canonical lowercase OHLCV columns (`date`, `open`, `high`, `low`, `close`, `volume`) plus a `ticker` column. Multi-symbol fetches are automatically sorted by ticker and date for consistent processing. It imports `yfinance` lazily and raises a predictable project error with install guidance when the optional extra is not installed or Yahoo returns unusable data.
+
+By default, `fetch_yahoo_ohlcv_many` aborts the whole batch if any symbol fails to fetch. Pass `on_error="skip"` for a best-effort mode that fetches the remaining symbols and reports failures instead of aborting:
+
+```python
+result = fetch_yahoo_ohlcv_many(["AAPL", "DELISTED", "MSFT"], on_error="skip")
+result.attrs["failed_symbols"]  # {"DELISTED": "<error message>"}
+```
+
+A `DataSourceError` is still raised if every symbol in the batch fails.
 
 ## Input CSV schema
 
@@ -95,13 +114,13 @@ from smartanalyticsinvest.pipeline import run_csv_pipeline
 result = run_csv_pipeline(
     "input.csv",
     sma_windows=(20,),
-    rsi_window=14,
+    rsi_windows=(14,),
     ema_windows=(12, 26),
     include_daily_returns=True,
 )
 ```
 
-This adds columns such as `ema_12`, `ema_26`, and `daily_return`; the first daily return in each series is missing.
+This adds columns such as `ema_12`, `ema_26`, and `daily_return`; the first daily return in each series is missing. Like `sma_windows` and `ema_windows`, `rsi_windows` accepts multiple windows (e.g. `rsi_windows=(7, 14)`) to produce one `rsi_<window>` column per window.
 
 ## CLI usage
 
@@ -109,6 +128,12 @@ Run the local CSV pipeline and write an enriched CSV:
 
 ```bash
 smartanalyticsinvest input.csv --output enriched.csv --sma-window 20 --rsi-window 14
+```
+
+`--rsi-window` is repeatable, like `--sma-window` and `--ema-window`:
+
+```bash
+smartanalyticsinvest input.csv --output enriched.csv --rsi-window 7 --rsi-window 14
 ```
 
 You can also run the module directly:

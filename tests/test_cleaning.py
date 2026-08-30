@@ -204,3 +204,29 @@ def test_clean_ohlcv_deduplicates_by_ticker_and_date_preserving_extra_columns():
         {"ticker": "AAPL", "date": pd.Timestamp("2024-01-02"), "close": 24.5, "note": "next-aapl"},
         {"ticker": "MSFT", "date": pd.Timestamp("2024-01-01"), "close": 10.5, "note": "keep-msft"},
     ]
+
+
+def test_clean_ohlcv_truncates_error_message_for_many_invalid_rows():
+    rows = [["2024-01-01", -1, 11, 9, 10.5, 100] for _ in range(200)]
+    source = _frame(rows)
+
+    with pytest.raises(DataCleaningError) as exc_info:
+        clean_ohlcv(source)
+
+    message = str(exc_info.value)
+    assert message.count(",") < 200
+    assert "(and 180 more, 200 total)" in message
+    assert message.startswith("Found invalid required OHLCV values in rows: 0, 1, 2")
+
+
+def test_clean_ohlcv_truncates_ticker_error_message_for_many_invalid_rows():
+    source = pd.DataFrame(
+        [["2024-01-01", 10, 11, 9, 10.5, 100, ""] for _ in range(50)],
+        columns=[*REQUIRED_OHLCV_COLUMNS, "ticker"],
+    )
+
+    with pytest.raises(DataCleaningError) as exc_info:
+        clean_ohlcv(source)
+
+    message = str(exc_info.value)
+    assert "(and 30 more, 50 total)" in message

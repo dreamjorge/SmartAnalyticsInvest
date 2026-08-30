@@ -177,6 +177,13 @@ def test_fetch_yahoo_ohlcv_many_fails_on_empty_symbol_list():
         fetch_yahoo_ohlcv_many([])
 
 
+def test_fetch_yahoo_ohlcv_many_rejects_unsupported_on_error_value():
+    from smartanalyticsinvest.data_sources import fetch_yahoo_ohlcv_many
+
+    with pytest.raises(ValueError, match="on_error must be 'raise' or 'skip'"):
+        fetch_yahoo_ohlcv_many(["AAPL"], on_error="rais")
+
+
 def test_fetch_yahoo_ohlcv_many_fails_on_individual_symbol_failure(monkeypatch):
     def download(symbol, **kwargs):
         if symbol == "BAD":
@@ -198,3 +205,41 @@ def test_fetch_yahoo_ohlcv_many_fails_on_individual_symbol_failure(monkeypatch):
 
     with pytest.raises(DataSourceError, match="Failed to fetch BAD"):
         fetch_yahoo_ohlcv_many(["AAPL", "BAD", "MSFT"])
+
+
+def test_fetch_yahoo_ohlcv_many_skips_failing_symbols_in_best_effort_mode(monkeypatch):
+    def download(symbol, **kwargs):
+        if symbol == "BAD":
+            raise ValueError("Invalid symbol")
+        return pd.DataFrame(
+            {
+                "Open": [100.0],
+                "High": [110.0],
+                "Low": [95.0],
+                "Close": [105.0],
+                "Volume": [1000],
+            },
+            index=pd.to_datetime(["2024-01-02"]),
+        )
+
+    monkeypatch.setitem(sys.modules, "yfinance", SimpleNamespace(download=download))
+
+    from smartanalyticsinvest.data_sources import fetch_yahoo_ohlcv_many
+
+    result = fetch_yahoo_ohlcv_many(["AAPL", "BAD", "MSFT"], on_error="skip")
+
+    assert result["ticker"].tolist() == ["AAPL", "MSFT"]
+    assert list(result.attrs["failed_symbols"].keys()) == ["BAD"]
+    assert "Invalid symbol" in result.attrs["failed_symbols"]["BAD"]
+
+
+def test_fetch_yahoo_ohlcv_many_best_effort_mode_still_raises_if_all_symbols_fail(monkeypatch):
+    def download(symbol, **kwargs):
+        raise ValueError("Invalid symbol")
+
+    monkeypatch.setitem(sys.modules, "yfinance", SimpleNamespace(download=download))
+
+    from smartanalyticsinvest.data_sources import fetch_yahoo_ohlcv_many
+
+    with pytest.raises(DataSourceError, match="No OHLCV data returned for any of 2 symbols"):
+        fetch_yahoo_ohlcv_many(["BAD", "WORSE"], on_error="skip")
