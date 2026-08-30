@@ -48,10 +48,11 @@ For multi-instrument workflows, fetch and concatenate multiple symbols into a si
 
 ```python
 from smartanalyticsinvest.data_sources import fetch_yahoo_ohlcv_many
-from smartanalyticsinvest.pipeline import run_csv_pipeline
+from smartanalyticsinvest.pipeline import clean_ohlcv, enrich_ohlcv
 
 raw = fetch_yahoo_ohlcv_many(["AAPL", "MSFT", "GOOGL"], period="1mo", interval="1d")
-result = run_csv_pipeline(raw, sma_windows=(20,), rsi_window=14)
+cleaned = clean_ohlcv(raw)
+result = enrich_ohlcv(cleaned, sma_windows=(20,), rsi_window=14)
 ```
 
 The adapter returns the canonical lowercase OHLCV columns (`date`, `open`, `high`, `low`, `close`, `volume`) plus a `ticker` column. Multi-symbol fetches are automatically sorted by ticker and date for consistent processing. It imports `yfinance` lazily and raises a predictable project error with install guidance when the optional extra is not installed or Yahoo returns unusable data.
@@ -103,20 +104,6 @@ python3 -m smartanalyticsinvest.cli input.csv --output enriched.csv
 ```
 
 The output CSV contains the required OHLCV columns plus indicator columns such as `sma_20` and `rsi_14`.
-
-### Optional CLI indicators
-
-The CLI supports optional EMA windows and daily returns alongside the default SMA and RSI:
-
-```bash
-smartanalyticsinvest input.csv --output enriched.csv \
-  --sma-window 20 --sma-window 50 \
-  --ema-window 12 --ema-window 26 \
-  --rsi-window 14 \
-  --include-daily-returns
-```
-
-This adds columns such as `sma_20`, `sma_50`, `ema_12`, `ema_26`, `rsi_14`, and `daily_return`. The `--sma-window` and `--ema-window` flags can be repeated to calculate multiple windows.
 
 ## Smoke example
 
