@@ -95,3 +95,37 @@ def add_daily_returns(frame: pd.DataFrame, *, price_column: str = "close") -> pd
     enriched = frame.copy()
     enriched["daily_return"] = daily_returns(enriched[price_column])
     return enriched
+
+
+def macd(
+    series: pd.Series, fast: int = 12, slow: int = 26, signal: int = 9
+) -> tuple[pd.Series, pd.Series, pd.Series]:
+    """Return the MACD line, signal line, and histogram for the requested windows."""
+
+    valid_fast = _validate_window(fast)
+    valid_slow = _validate_window(slow)
+    valid_signal = _validate_window(signal)
+    macd_line = exponential_moving_average(series, valid_fast) - exponential_moving_average(
+        series, valid_slow
+    )
+    signal_line = exponential_moving_average(macd_line, valid_signal)
+    histogram = macd_line - signal_line
+    return macd_line, signal_line, histogram
+
+
+def add_macd(
+    frame: pd.DataFrame,
+    *,
+    price_column: str = "close",
+    fast: int = 12,
+    slow: int = 26,
+    signal: int = 9,
+) -> pd.DataFrame:
+    """Return a copy enriched with macd, macd_signal, and macd_histogram columns."""
+
+    enriched = frame.copy()
+    macd_line, signal_line, histogram = macd(enriched[price_column], fast, slow, signal)
+    enriched["macd"] = macd_line
+    enriched["macd_signal"] = signal_line
+    enriched["macd_histogram"] = histogram
+    return enriched

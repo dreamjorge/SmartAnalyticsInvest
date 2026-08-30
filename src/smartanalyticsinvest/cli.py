@@ -45,6 +45,14 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Include daily percentage returns column in output",
     )
+    parser.add_argument(
+        "--include-macd",
+        action="store_true",
+        help="Include macd, macd_signal, and macd_histogram columns in output",
+    )
+    parser.add_argument("--macd-fast", type=int, default=12, help="MACD fast EMA window")
+    parser.add_argument("--macd-slow", type=int, default=26, help="MACD slow EMA window")
+    parser.add_argument("--macd-signal", type=int, default=9, help="MACD signal EMA window")
     return parser
 
 
@@ -69,6 +77,10 @@ def main(argv: list[str] | None = None) -> int:
             rsi_windows=rsi_windows,
             ema_windows=ema_windows,
             include_daily_returns=args.include_daily_returns,
+            include_macd=args.include_macd,
+            macd_fast=args.macd_fast,
+            macd_slow=args.macd_slow,
+            macd_signal=args.macd_signal,
         )
     except FileNotFoundError:
         print(f"Error: could not read input file: {args.input_csv}", file=sys.stderr)

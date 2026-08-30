@@ -117,10 +117,13 @@ result = run_csv_pipeline(
     rsi_windows=(14,),
     ema_windows=(12, 26),
     include_daily_returns=True,
+    include_macd=True,
 )
 ```
 
 This adds columns such as `ema_12`, `ema_26`, and `daily_return`; the first daily return in each series is missing. Like `sma_windows` and `ema_windows`, `rsi_windows` accepts multiple windows (e.g. `rsi_windows=(7, 14)`) to produce one `rsi_<window>` column per window.
+
+`include_macd=True` adds `macd`, `macd_signal`, and `macd_histogram` columns using the standard 12/26/9 EMA windows; override them with `macd_fast`, `macd_slow`, and `macd_signal`.
 
 ## CLI usage
 
@@ -134,6 +137,12 @@ smartanalyticsinvest input.csv --output enriched.csv --sma-window 20 --rsi-windo
 
 ```bash
 smartanalyticsinvest input.csv --output enriched.csv --rsi-window 7 --rsi-window 14
+```
+
+Add `--include-macd` for `macd`, `macd_signal`, and `macd_histogram` columns (defaults to the standard 12/26/9 EMA windows, overridable with `--macd-fast`/`--macd-slow`/`--macd-signal`):
+
+```bash
+smartanalyticsinvest input.csv --output enriched.csv --include-macd
 ```
 
 You can also run the module directly:

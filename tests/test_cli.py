@@ -252,3 +252,36 @@ def test_cli_main_default_sma_window_when_not_specified(tmp_path):
     written = pd.read_csv(output_csv)
     assert exit_code == 0
     assert [*REQUIRED_OHLCV_COLUMNS, "sma_20", "rsi_14"] == list(written.columns)
+
+
+def test_cli_main_accepts_macd_flags(tmp_path):
+    input_csv = tmp_path / "input.csv"
+    output_csv = tmp_path / "enriched.csv"
+    _write_valid_csv(input_csv)
+
+    exit_code = main(
+        [
+            str(input_csv),
+            "--output",
+            str(output_csv),
+            "--include-macd",
+            "--macd-fast",
+            "3",
+            "--macd-slow",
+            "5",
+            "--macd-signal",
+            "2",
+        ]
+    )
+
+    written = pd.read_csv(output_csv)
+    assert exit_code == 0
+    assert [
+        *REQUIRED_OHLCV_COLUMNS,
+        "sma_20",
+        "rsi_14",
+        "macd",
+        "macd_signal",
+        "macd_histogram",
+    ] == list(written.columns)
+    assert not written["macd"].isna().all()
