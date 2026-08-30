@@ -90,6 +90,20 @@ python3 -m smartanalyticsinvest.cli input.csv --output enriched.csv
 
 The output CSV contains the required OHLCV columns plus indicator columns such as `sma_20` and `rsi_14`.
 
+### Optional CLI indicators
+
+The CLI supports optional EMA windows and daily returns alongside the default SMA and RSI:
+
+```bash
+smartanalyticsinvest input.csv --output enriched.csv \
+  --sma-window 20 --sma-window 50 \
+  --ema-window 12 --ema-window 26 \
+  --rsi-window 14 \
+  --include-daily-returns
+```
+
+This adds columns such as `sma_20`, `sma_50`, `ema_12`, `ema_26`, `rsi_14`, and `daily_return`. The `--sma-window` and `--ema-window` flags can be repeated to calculate multiple windows.
+
 ## Smoke example
 
 The repository includes a tiny deterministic sample CSV:

@@ -131,3 +131,103 @@ def test_cli_main_reports_output_write_failure_without_traceback(tmp_path, capsy
     assert str(output_csv) in captured.err
     assert "traceback" not in captured.err.lower()
     assert captured.out == ""
+
+
+def test_cli_main_accepts_multiple_sma_windows(tmp_path, capsys):
+    input_csv = tmp_path / "input.csv"
+    output_csv = tmp_path / "enriched.csv"
+    _write_valid_csv(input_csv)
+
+    exit_code = main(
+        [str(input_csv), "--output", str(output_csv), "--sma-window", "3", "--sma-window", "5"]
+    )
+
+    captured = capsys.readouterr()
+    written = pd.read_csv(output_csv)
+    assert exit_code == 0
+    assert "Wrote 16 rows" in captured.out
+    assert [*REQUIRED_OHLCV_COLUMNS, "sma_3", "sma_5", "rsi_14"] == list(written.columns)
+    assert written.loc[2, "sma_3"] == 102.0
+    assert written.loc[4, "sma_5"] == 103.0
+
+
+def test_cli_main_accepts_ema_windows(tmp_path, capsys):
+    input_csv = tmp_path / "input.csv"
+    output_csv = tmp_path / "enriched.csv"
+    _write_valid_csv(input_csv)
+
+    exit_code = main(
+        [str(input_csv), "--output", str(output_csv), "--sma-window", "3", "--ema-window", "5"]
+    )
+
+    captured = capsys.readouterr()
+    written = pd.read_csv(output_csv)
+    assert exit_code == 0
+    assert "Wrote 16 rows" in captured.out
+    assert [*REQUIRED_OHLCV_COLUMNS, "sma_3", "rsi_14", "ema_5"] == list(written.columns)
+    assert not written["ema_5"].isna().all()
+
+
+def test_cli_main_accepts_daily_returns(tmp_path, capsys):
+    input_csv = tmp_path / "input.csv"
+    output_csv = tmp_path / "enriched.csv"
+    _write_valid_csv(input_csv)
+
+    exit_code = main(
+        [
+            str(input_csv),
+            "--output",
+            str(output_csv),
+            "--sma-window",
+            "3",
+            "--include-daily-returns",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    written = pd.read_csv(output_csv)
+    assert exit_code == 0
+    assert "Wrote 16 rows" in captured.out
+    assert [*REQUIRED_OHLCV_COLUMNS, "sma_3", "rsi_14", "daily_return"] == list(written.columns)
+    assert pd.isna(written.loc[0, "daily_return"])
+    assert not pd.isna(written.loc[1, "daily_return"])
+
+
+def test_cli_main_accepts_combined_flags(tmp_path):
+    input_csv = tmp_path / "input.csv"
+    output_csv = tmp_path / "enriched.csv"
+    _write_valid_csv(input_csv)
+
+    exit_code = main(
+        [
+            str(input_csv),
+            "--output",
+            str(output_csv),
+            "--sma-window",
+            "3",
+            "--sma-window",
+            "5",
+            "--ema-window",
+            "7",
+            "--rsi-window",
+            "14",
+            "--include-daily-returns",
+        ]
+    )
+
+    written = pd.read_csv(output_csv)
+    assert exit_code == 0
+    expected_columns = [*REQUIRED_OHLCV_COLUMNS, "sma_3", "sma_5", "rsi_14", "ema_7", "daily_return"]
+    assert expected_columns == list(written.columns)
+
+
+def test_cli_main_default_sma_window_when_not_specified(tmp_path):
+    input_csv = tmp_path / "input.csv"
+    output_csv = tmp_path / "enriched.csv"
+    _write_valid_csv(input_csv, rows=25)
+
+    exit_code = main([str(input_csv), "--output", str(output_csv), "--rsi-window", "14"])
+
+    written = pd.read_csv(output_csv)
+    assert exit_code == 0
+    assert [*REQUIRED_OHLCV_COLUMNS, "sma_20", "rsi_14"] == list(written.columns)
