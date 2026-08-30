@@ -192,6 +192,17 @@ Parquet output requires the optional `file-formats` extra:
 python3 -m pip install -e '.[file-formats]'
 ```
 
+### Batch processing multiple files
+
+Pass more than one input path (or a glob pattern) to process a whole directory of per-symbol CSVs in one run. `--output` is then treated as an output directory, and each input's enriched result is written there as `<input-stem>.<format>`:
+
+```bash
+smartanalyticsinvest data/aapl.csv data/msft.csv --output enriched/ --sma-window 20
+smartanalyticsinvest "data/*.csv" --output enriched/
+```
+
+The output directory is created if it doesn't exist. Each file is processed independently and a bad file doesn't abort the batch: failures are reported per file, a `Processed N/M input files successfully` summary is printed, and the exit code is non-zero if any file failed. Single-input invocations are unaffected and keep writing directly to `--output` as a file.
+
 ## Smoke example
 
 The repository includes a tiny deterministic sample CSV:
