@@ -114,6 +114,14 @@ raw = load_stockstreamdb(
 
 Macro series are usually lower-frequency than daily prices (e.g. monthly), so each row gets the most recent observation as of its date (forward-filled, via `pandas.merge_asof`) rather than requiring an exact date match. Omit `macro_series` to include every series present in the database.
 
+FRED's observation date for series like CPI, GDP, or unemployment is the start of the reporting period, not the day it was actually published — real-world publication lag is commonly two to six weeks. Joining on the raw observation date leaks future information into rows dated before the real release. Pass `macro_publication_lag_days` to shift observations forward by a conservative number of days before joining, so a value only becomes visible on/after the date it would plausibly have been available:
+
+```python
+raw = load_stockstreamdb("stockstreamdb.db", include_macro=True, macro_publication_lag_days=30)
+```
+
+This defaults to `0` for backward compatibility, which is only safe for series published same-day; for training use cases, pass an explicit lag appropriate to your series.
+
 ## Input CSV schema
 
 Your input CSV must include these exact OHLCV columns:
