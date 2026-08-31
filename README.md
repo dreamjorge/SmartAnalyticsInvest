@@ -104,6 +104,14 @@ cleaned = clean_ohlcv(raw)
 
 This reads StockStreamDB's `stock_prices` table directly via the standard-library `sqlite3` module — no extra dependency, and StockStreamDB itself doesn't need to be installed, only its database file. Pass `include_fundamentals=True`/`include_sentiment=True` to left-join StockStreamDB's `fundamentals` (P/E ratio, EPS, market cap, revenue, net income, total assets) and `sentiment_analysis` (average sentiment score per ticker/date) tables onto the result as extra feature columns, useful for downstream model training.
 
+Pass `include_macro=True` to also join FRED macro-economic series (interest rates, inflation, unemployment, etc.) from StockStreamDB's `macro_indicators` table — one `macro_<series_id>` column per series, broadcast to every ticker since macro data isn't ticker-specific:
+
+```python
+raw = load_stockstreamdb("stockstreamdb.db", include_macro=True, macro_series=["FEDFUNDS", "UNRATE"])
+```
+
+Macro series are usually lower-frequency than daily prices (e.g. monthly), so each row gets the most recent observation as of its date (forward-filled, via `pandas.merge_asof`) rather than requiring an exact date match. Omit `macro_series` to include every series present in the database.
+
 ## Input CSV schema
 
 Your input CSV must include these exact OHLCV columns:

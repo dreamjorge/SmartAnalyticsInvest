@@ -43,6 +43,12 @@ def _build_stockstreamdb_fixture(db_path):
                 sentiment_score REAL,
                 date DATE
             );
+            CREATE TABLE macro_indicators (
+                macro_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                series_id TEXT,
+                date DATE,
+                value REAL
+            );
             """
         )
         connection.executemany(
@@ -67,6 +73,14 @@ def _build_stockstreamdb_fixture(db_path):
             [
                 ("AAPL", "2024-01-02", "Headline A", "Body A", 0.8),
                 ("AAPL", "2024-01-02", "Headline B", "Body B", 0.4),
+            ],
+        )
+        connection.executemany(
+            "INSERT INTO macro_indicators (series_id, date, value) VALUES (?, ?, ?)",
+            [
+                ("FEDFUNDS", "2023-12-15", 5.25),
+                ("FEDFUNDS", "2024-01-02", 5.50),
+                ("UNRATE", "2024-01-01", 3.7),
             ],
         )
 
@@ -350,6 +364,58 @@ def test_load_stockstreamdb_joins_fundamentals_and_sentiment(tmp_path):
     aapl_day1 = result[(result["ticker"] == "AAPL") & (result["date"] == "2024-01-01")].iloc[0]
     assert pd.isna(aapl_day1["pe_ratio"])
     assert pd.isna(aapl_day1["sentiment_score"])
+
+
+def test_load_stockstreamdb_joins_macro_indicators_with_asof_backward_fill(tmp_path):
+    from smartanalyticsinvest.data_sources import load_stockstreamdb
+
+    db_path = tmp_path / "stockstream.db"
+    _build_stockstreamdb_fixture(db_path)
+
+    result = load_stockstreamdb(db_path, include_macro=True)
+
+    assert "macro_FEDFUNDS" in result.columns
+    assert "macro_UNRATE" in result.columns
+
+    aapl_day1 = result[(result["ticker"] == "AAPL") & (result["date"] == "2024-01-01")].iloc[0]
+    aapl_day2 = result[(result["ticker"] == "AAPL") & (result["date"] == "2024-01-02")].iloc[0]
+    msft_day1 = result[(result["ticker"] == "MSFT") & (result["date"] == "2024-01-01")].iloc[0]
+
+    # 2024-01-01 has no FEDFUNDS observation on/before it other than 2023-12-15
+    assert aapl_day1["macro_FEDFUNDS"] == pytest.approx(5.25)
+    # 2024-01-02 has an exact FEDFUNDS observation that day
+    assert aapl_day2["macro_FEDFUNDS"] == pytest.approx(5.50)
+    # UNRATE only has one observation (2024-01-01); it forward-fills to 2024-01-02
+    assert aapl_day1["macro_UNRATE"] == pytest.approx(3.7)
+    assert aapl_day2["macro_UNRATE"] == pytest.approx(3.7)
+    # Macro series are market-wide: broadcast identically to every ticker on that date
+    assert msft_day1["macro_FEDFUNDS"] == pytest.approx(5.25)
+    assert msft_day1["macro_UNRATE"] == pytest.approx(3.7)
+
+
+def test_load_stockstreamdb_filters_macro_series(tmp_path):
+    from smartanalyticsinvest.data_sources import load_stockstreamdb
+
+    db_path = tmp_path / "stockstream.db"
+    _build_stockstreamdb_fixture(db_path)
+
+    result = load_stockstreamdb(db_path, include_macro=True, macro_series=["UNRATE"])
+
+    assert "macro_UNRATE" in result.columns
+    assert "macro_FEDFUNDS" not in result.columns
+
+
+def test_load_stockstreamdb_include_macro_is_a_no_op_when_table_empty(tmp_path):
+    from smartanalyticsinvest.data_sources import load_stockstreamdb
+
+    db_path = tmp_path / "stockstream.db"
+    _build_stockstreamdb_fixture(db_path)
+    with sqlite3.connect(db_path) as connection:
+        connection.execute("DELETE FROM macro_indicators")
+
+    result = load_stockstreamdb(db_path, include_macro=True)
+
+    assert not any(column.startswith("macro_") for column in result.columns)
 
 
 def test_load_stockstreamdb_raises_for_missing_database_file(tmp_path):
