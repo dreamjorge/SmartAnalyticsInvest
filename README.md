@@ -235,7 +235,7 @@ smartanalyticsinvest "data/*.csv" --output enriched/
 
 The output directory is created if it doesn't exist. Each file is processed independently and a bad file doesn't abort the batch: failures (including unreadable inputs, e.g. permission errors) are reported per file, a `Processed N/M input files successfully` summary is printed, and the exit code is non-zero if any file failed. Single-input invocations are unaffected and keep writing directly to `--output` as a file.
 
-If two inputs would map to the same output filename (e.g. `region-a/prices.csv` and `region-b/prices.csv` both stem to `prices.csv`), the batch is rejected upfront with an error naming the colliding inputs, before any file is written — nothing is silently overwritten. This comparison is case-insensitive (e.g. `prices.csv` and `Prices.csv` also collide), matching the default behavior of common filesystems such as macOS and Windows.
+If two inputs would map to the same output filename (e.g. `region-a/prices.csv` and `region-b/prices.csv` both stem to `prices.csv`), the batch is rejected upfront with an error naming the colliding inputs, before any file is written — nothing is silently overwritten. This comparison is case- and Unicode-normalization-insensitive (e.g. `prices.csv`/`Prices.csv`, and a precomposed vs. decomposed accented filename, also collide), matching the default behavior of common filesystems such as macOS and Windows.
 
 ## Smoke example
 
