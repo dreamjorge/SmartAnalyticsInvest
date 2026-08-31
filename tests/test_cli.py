@@ -507,6 +507,33 @@ def test_cli_main_batch_mode_rejects_unicode_normalization_colliding_output_name
     assert "multiple inputs would overwrite the same output file" in captured.err.lower()
 
 
+def test_cli_main_batch_mode_rejects_case_and_normalization_combined_collisions(tmp_path, capsys):
+    # Greek "\u03b9\u0308\u0301" (iota + combining diaeresis + combining acute)
+    # and "\u0399\u0308\u0301" (capital iota + the same combining marks) are
+    # canonically equivalent once case-folded, but casefold() alone can produce a
+    # result that isn't itself in normal form, so a naive normalize-then-casefold
+    # pass can still land on byte-distinct keys for them -- the check must
+    # re-normalize *after* folding as well.
+    stem_a = "\u03b9\u0308\u0301"
+    stem_b = "\u0399\u0308\u0301"
+    assert stem_a != stem_b
+    region_a = tmp_path / "region-a"
+    region_b = tmp_path / "region-b"
+    region_a.mkdir()
+    region_b.mkdir()
+    input_a = region_a / f"{stem_a}.csv"
+    input_b = region_b / f"{stem_b}.csv"
+    output_dir = tmp_path / "enriched"
+    _write_valid_csv(input_a)
+    _write_valid_csv(input_b)
+
+    exit_code = main([str(input_a), str(input_b), "--output", str(output_dir)])
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "multiple inputs would overwrite the same output file" in captured.err.lower()
+
+
 def test_cli_main_batch_mode_continues_past_unreadable_input(tmp_path, capsys):
     input_good = tmp_path / "good.csv"
     input_dir_as_file = tmp_path / "not_a_file.csv"

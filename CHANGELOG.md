@@ -15,6 +15,7 @@ All notable changes to SmartAnalyticsInvest will be documented in this file.
 - **Fixed** (found via automated code review): `macro_publication_lag_days` accepted negative values, which shifted macro observations *earlier* and worsened the very look-ahead leakage the option exists to prevent; it now must be a non-negative integer (booleans rejected too).
 - **Fixed** (found via automated code review): batch mode's output-collision detection compared paths with exact string equality, so on case-insensitive filesystems (the macOS/Windows default) two inputs like `region-a/prices.csv` and `region-b/Prices.csv` would go undetected and silently overwrite each other; the comparison is now case-insensitive.
 - **Fixed** (found via automated code review): the case-insensitive collision check above still missed Unicode-normalization-equivalent filenames (e.g. a precomposed vs. decomposed accented character), which also collide on normalization-insensitive filesystems such as default macOS APFS; paths are now Unicode-normalized (NFC) before case-folding.
+- **Fixed** (found via automated code review): normalizing only *before* case-folding was still incomplete, since `casefold()` itself can produce text that isn't in normal form for some combining-mark sequences; the comparison now follows Unicode's canonical caseless matching recommendation and normalizes (NFD) both before and after folding.
 
 ## 0.1.1 - 2026-08-19
 
