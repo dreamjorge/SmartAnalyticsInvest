@@ -102,7 +102,7 @@ raw = load_stockstreamdb("stockstreamdb.db", tickers=["AAPL", "MSFT"])
 cleaned = clean_ohlcv(raw)
 ```
 
-This reads StockStreamDB's `stock_prices` table directly via the standard-library `sqlite3` module — no extra dependency, and StockStreamDB itself doesn't need to be installed, only its database file. Pass `include_fundamentals=True`/`include_sentiment=True` to left-join StockStreamDB's `fundamentals` (P/E ratio, EPS, market cap, revenue, net income, total assets) and `sentiment_analysis` (average sentiment score per ticker/date) tables onto the result as extra feature columns, useful for downstream model training.
+This reads StockStreamDB's `stock_prices` table directly via the standard-library `sqlite3` module — no extra dependency, and StockStreamDB itself doesn't need to be installed, only its database file. `tickers` filters at the SQL level (including for `fundamentals`/`sentiment_analysis` below), so a single-ticker request doesn't load the whole database into memory. Pass `include_fundamentals=True`/`include_sentiment=True` to left-join StockStreamDB's `fundamentals` (P/E ratio, EPS, market cap, revenue, net income, total assets) and `sentiment_analysis` (average sentiment score per ticker/date) tables onto the result as extra feature columns, useful for downstream model training. If a ticker/date has more than one fundamentals snapshot (StockStreamDB's schema allows this), only the most recently inserted one is used, so the join never duplicates OHLCV rows.
 
 Pass `include_macro=True` to also join FRED macro-economic series (interest rates, inflation, unemployment, etc.) from StockStreamDB's `macro_indicators` table — one `macro_<series_id>` column per series, broadcast to every ticker since macro data isn't ticker-specific:
 
@@ -225,7 +225,9 @@ smartanalyticsinvest data/aapl.csv data/msft.csv --output enriched/ --sma-window
 smartanalyticsinvest "data/*.csv" --output enriched/
 ```
 
-The output directory is created if it doesn't exist. Each file is processed independently and a bad file doesn't abort the batch: failures are reported per file, a `Processed N/M input files successfully` summary is printed, and the exit code is non-zero if any file failed. Single-input invocations are unaffected and keep writing directly to `--output` as a file.
+The output directory is created if it doesn't exist. Each file is processed independently and a bad file doesn't abort the batch: failures (including unreadable inputs, e.g. permission errors) are reported per file, a `Processed N/M input files successfully` summary is printed, and the exit code is non-zero if any file failed. Single-input invocations are unaffected and keep writing directly to `--output` as a file.
+
+If two inputs would map to the same output filename (e.g. `region-a/prices.csv` and `region-b/prices.csv` both stem to `prices.csv`), the batch is rejected upfront with an error naming the colliding inputs, before any file is written — nothing is silently overwritten.
 
 ## Smoke example
 

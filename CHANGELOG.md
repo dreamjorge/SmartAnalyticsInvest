@@ -9,6 +9,8 @@ All notable changes to SmartAnalyticsInvest will be documented in this file.
 - Added `data_sources.load_stockstreamdb()`, an optional loader that reads OHLCV rows (and optionally fundamentals/sentiment) from a [StockStreamDB](https://github.com/dreamjorge/StockStreamDB) SQLite database, for callers who already collect historical data with that project.
 - Added a `py.typed` marker (PEP 561) so external projects that depend on `smartanalyticsinvest` get real type checking instead of `mypy` skipping it as untyped.
 - `data_sources.load_stockstreamdb()` gained `include_macro`/`macro_series` to join FRED macro-economic indicators from StockStreamDB's `macro_indicators` table, forward-filled and aligned to each row's date via `merge_asof`.
+- **Fixed** (found via automated code review): `load_stockstreamdb()`'s `fundamentals` join could silently duplicate OHLCV rows in a many-to-many merge if a ticker/date had more than one fundamentals snapshot; it now keeps only the most recently inserted one. `tickers` filtering is now pushed into SQL for the price/fundamentals/sentiment queries instead of loading full tables into pandas first.
+- **Fixed** the CLI's batch mode (`--output` as a directory): inputs with the same filename stem in different directories (e.g. `region-a/prices.csv` and `region-b/prices.csv`) could silently overwrite each other's output; batches with colliding output names are now rejected upfront, before any file is written. Unreadable inputs (e.g. permission errors, a directory passed as input) are now handled as a per-file failure instead of aborting the whole batch with a traceback.
 
 ## 0.1.1 - 2026-08-19
 

@@ -52,6 +52,9 @@ def _process_one(
     except FileNotFoundError:
         print(f"Error: could not read input file: {input_path}", file=sys.stderr)
         return 1
+    except OSError as exc:
+        print(f"Error: could not read input file: {input_path}: {exc}", file=sys.stderr)
+        return 1
     except (SmartAnalyticsInvestError, ValueError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
@@ -69,6 +72,15 @@ def _process_one(
     return 0
 
 
+def _find_output_collisions(
+    input_paths: list[str], output_paths: list[Path]
+) -> dict[Path, list[str]]:
+    inputs_by_output: dict[Path, list[str]] = {}
+    for input_path, output_path in zip(input_paths, output_paths, strict=True):
+        inputs_by_output.setdefault(output_path, []).append(input_path)
+    return {path: inputs for path, inputs in inputs_by_output.items() if len(inputs) > 1}
+
+
 def _process_batch(
     input_paths: list[str], output_dir: Path, output_format: str, pipeline_kwargs: dict[str, Any]
 ) -> int:
@@ -78,9 +90,21 @@ def _process_batch(
         print(f"Error: could not create output directory: {output_dir}: {exc}", file=sys.stderr)
         return 1
 
+    output_paths = [
+        output_dir / f"{Path(input_path).stem}.{output_format}" for input_path in input_paths
+    ]
+    collisions = _find_output_collisions(input_paths, output_paths)
+    if collisions:
+        for output_path, colliding_inputs in collisions.items():
+            print(
+                f"Error: multiple inputs would overwrite the same output file "
+                f"{output_path}: {', '.join(colliding_inputs)}",
+                file=sys.stderr,
+            )
+        return 1
+
     failures = 0
-    for input_path in input_paths:
-        output_path = output_dir / f"{Path(input_path).stem}.{output_format}"
+    for input_path, output_path in zip(input_paths, output_paths, strict=True):
         if _process_one(input_path, output_path, output_format, pipeline_kwargs) != 0:
             failures += 1
 

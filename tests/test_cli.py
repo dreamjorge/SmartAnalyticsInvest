@@ -438,6 +438,44 @@ def test_cli_main_batch_mode_continues_past_one_bad_file(tmp_path, capsys):
     assert "Processed 1/2 input files successfully" in captured.out
 
 
+def test_cli_main_batch_mode_rejects_colliding_output_names(tmp_path, capsys):
+    region_a = tmp_path / "region-a"
+    region_b = tmp_path / "region-b"
+    region_a.mkdir()
+    region_b.mkdir()
+    input_a = region_a / "prices.csv"
+    input_b = region_b / "prices.csv"
+    output_dir = tmp_path / "enriched"
+    _write_valid_csv(input_a)
+    _write_valid_csv(input_b)
+
+    exit_code = main([str(input_a), str(input_b), "--output", str(output_dir)])
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "multiple inputs would overwrite the same output file" in captured.err.lower()
+    assert str(input_a) in captured.err
+    assert str(input_b) in captured.err
+    # Detected before processing starts: neither file is written.
+    assert not (output_dir / "prices.csv").exists()
+
+
+def test_cli_main_batch_mode_continues_past_unreadable_input(tmp_path, capsys):
+    input_good = tmp_path / "good.csv"
+    input_dir_as_file = tmp_path / "not_a_file.csv"
+    input_dir_as_file.mkdir()
+    output_dir = tmp_path / "enriched"
+    _write_valid_csv(input_good)
+
+    exit_code = main([str(input_good), str(input_dir_as_file), "--output", str(output_dir)])
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert (output_dir / "good.csv").exists()
+    assert "could not read input file" in captured.err.lower()
+    assert "Processed 1/2 input files successfully" in captured.out
+
+
 def test_cli_main_batch_mode_output_format_flag_applies_to_all_files(tmp_path):
     input_a = tmp_path / "a.csv"
     input_b = tmp_path / "b.csv"
