@@ -107,7 +107,9 @@ This reads StockStreamDB's `stock_prices` table directly via the standard-librar
 Pass `include_macro=True` to also join FRED macro-economic series (interest rates, inflation, unemployment, etc.) from StockStreamDB's `macro_indicators` table — one `macro_<series_id>` column per series, broadcast to every ticker since macro data isn't ticker-specific:
 
 ```python
-raw = load_stockstreamdb("stockstreamdb.db", include_macro=True, macro_series=["FEDFUNDS", "UNRATE"])
+raw = load_stockstreamdb(
+    "stockstreamdb.db", include_macro=True, macro_series=["FEDFUNDS", "UNRATE"]
+)
 ```
 
 Macro series are usually lower-frequency than daily prices (e.g. monthly), so each row gets the most recent observation as of its date (forward-filled, via `pandas.merge_asof`) rather than requiring an exact date match. Omit `macro_series` to include every series present in the database.
