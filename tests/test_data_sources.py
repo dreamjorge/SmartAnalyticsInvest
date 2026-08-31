@@ -458,6 +458,17 @@ def test_load_stockstreamdb_macro_publication_lag_delays_availability(tmp_path):
     assert pd.isna(aapl_day2["macro_UNRATE"])
 
 
+@pytest.mark.parametrize("bad_lag", [-1, -30, 1.5, "30", True, False])
+def test_load_stockstreamdb_rejects_invalid_macro_publication_lag_days(tmp_path, bad_lag):
+    from smartanalyticsinvest.data_sources import load_stockstreamdb
+
+    db_path = tmp_path / "stockstream.db"
+    _build_stockstreamdb_fixture(db_path)
+
+    with pytest.raises(ValueError, match="macro_publication_lag_days"):
+        load_stockstreamdb(db_path, include_macro=True, macro_publication_lag_days=bad_lag)
+
+
 def test_load_stockstreamdb_filters_macro_series(tmp_path):
     from smartanalyticsinvest.data_sources import load_stockstreamdb
 

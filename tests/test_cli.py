@@ -460,6 +460,26 @@ def test_cli_main_batch_mode_rejects_colliding_output_names(tmp_path, capsys):
     assert not (output_dir / "prices.csv").exists()
 
 
+def test_cli_main_batch_mode_rejects_case_insensitive_colliding_output_names(tmp_path, capsys):
+    region_a = tmp_path / "region-a"
+    region_b = tmp_path / "region-b"
+    region_a.mkdir()
+    region_b.mkdir()
+    input_a = region_a / "prices.csv"
+    input_b = region_b / "Prices.csv"
+    output_dir = tmp_path / "enriched"
+    _write_valid_csv(input_a)
+    _write_valid_csv(input_b)
+
+    exit_code = main([str(input_a), str(input_b), "--output", str(output_dir)])
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "multiple inputs would overwrite the same output file" in captured.err.lower()
+    assert not (output_dir / "prices.csv").exists()
+    assert not (output_dir / "Prices.csv").exists()
+
+
 def test_cli_main_batch_mode_continues_past_unreadable_input(tmp_path, capsys):
     input_good = tmp_path / "good.csv"
     input_dir_as_file = tmp_path / "not_a_file.csv"

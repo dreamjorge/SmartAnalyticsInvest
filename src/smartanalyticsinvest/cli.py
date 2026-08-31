@@ -75,10 +75,16 @@ def _process_one(
 def _find_output_collisions(
     input_paths: list[str], output_paths: list[Path]
 ) -> dict[Path, list[str]]:
-    inputs_by_output: dict[Path, list[str]] = {}
+    # Compare case-insensitively: many common filesystems (default macOS, Windows) treat
+    # paths differing only by case as the same file, so an exact-match comparison would
+    # miss a real collision there.
+    grouped: dict[str, tuple[Path, list[str]]] = {}
     for input_path, output_path in zip(input_paths, output_paths, strict=True):
-        inputs_by_output.setdefault(output_path, []).append(input_path)
-    return {path: inputs for path, inputs in inputs_by_output.items() if len(inputs) > 1}
+        normalized = str(output_path).casefold()
+        if normalized not in grouped:
+            grouped[normalized] = (output_path, [])
+        grouped[normalized][1].append(input_path)
+    return {path: inputs for path, inputs in grouped.values() if len(inputs) > 1}
 
 
 def _process_batch(
