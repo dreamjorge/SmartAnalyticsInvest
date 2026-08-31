@@ -24,6 +24,7 @@ _STOCKSTREAMDB_SENTIMENT_QUERY = (
     "SELECT ticker, date, AVG(sentiment_score) AS sentiment_score "
     "FROM sentiment_analysis GROUP BY ticker, date"
 )
+_STOCKSTREAMDB_MACRO_QUERY = "SELECT series_id, date, value FROM macro_indicators"
 
 
 def _import_yfinance() -> Any:
@@ -156,12 +157,45 @@ def fetch_yahoo_ohlcv_many(
     return result
 
 
+def _join_macro_indicators(
+    frame: pd.DataFrame,
+    connection: sqlite3.Connection,
+    macro_series: list[str] | tuple[str, ...] | None,
+) -> pd.DataFrame:
+    query = _STOCKSTREAMDB_MACRO_QUERY
+    if macro_series is None:
+        macro = pd.read_sql_query(query, connection, parse_dates=["date"])
+    else:
+        placeholders = ", ".join("?" for _ in macro_series)
+        query += f" WHERE series_id IN ({placeholders})"
+        macro = pd.read_sql_query(
+            query, connection, params=list(macro_series), parse_dates=["date"]
+        )
+    if macro.empty:
+        return frame
+
+    pivoted = (
+        macro.pivot_table(index="date", columns="series_id", values="value")
+        .sort_index()
+        .ffill()
+        .reset_index()
+    )
+    pivoted.columns = ["date"] + [f"macro_{column}" for column in pivoted.columns[1:]]
+
+    merged = pd.merge_asof(
+        frame.sort_values("date"), pivoted.sort_values("date"), on="date", direction="backward"
+    )
+    return merged
+
+
 def load_stockstreamdb(
     db_path: str | Path,
     *,
     tickers: list[str] | tuple[str, ...] | None = None,
     include_fundamentals: bool = False,
     include_sentiment: bool = False,
+    include_macro: bool = False,
+    macro_series: list[str] | tuple[str, ...] | None = None,
 ) -> pd.DataFrame:
     """Load canonical OHLCV rows from a StockStreamDB SQLite database.
 
@@ -176,6 +210,13 @@ def load_stockstreamdb(
     ``sentiment_analysis`` tables are left-joined onto the result by ``ticker``/``date``
     (sentiment scores are averaged per ticker/date), adding extra feature columns
     useful for downstream model training.
+
+    With ``include_macro``, FRED macro-economic series from the ``macro_indicators``
+    table (not ticker-specific) are pivoted into one ``macro_<series_id>`` column per
+    series, forward-filled, and joined onto every ticker's rows using the most recent
+    observation as of each row's date (``pd.merge_asof``, backward direction) — macro
+    series are typically lower-frequency than daily prices and don't need exact date
+    alignment. Pass ``macro_series`` to restrict to specific FRED series IDs.
     """
 
     db_file = Path(db_path)
@@ -203,6 +244,9 @@ def load_stockstreamdb(
                     _STOCKSTREAMDB_SENTIMENT_QUERY, connection, parse_dates=["date"]
                 )
                 frame = frame.merge(sentiment, on=["ticker", "date"], how="left")
+
+            if include_macro:
+                frame = _join_macro_indicators(frame, connection, macro_series)
     except (sqlite3.DatabaseError, pd.errors.DatabaseError) as exc:
         raise DataSourceError(f"Could not read StockStreamDB database {db_file}: {exc}") from exc
 
