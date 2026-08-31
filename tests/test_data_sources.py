@@ -366,6 +366,49 @@ def test_load_stockstreamdb_joins_fundamentals_and_sentiment(tmp_path):
     assert pd.isna(aapl_day1["sentiment_score"])
 
 
+def test_load_stockstreamdb_dedupes_duplicate_fundamentals_keeping_the_latest(tmp_path):
+    from smartanalyticsinvest.data_sources import load_stockstreamdb
+
+    db_path = tmp_path / "stockstream.db"
+    _build_stockstreamdb_fixture(db_path)
+    with sqlite3.connect(db_path) as connection:
+        # A second, later-inserted fundamentals snapshot for the same (ticker, date):
+        # StockStreamDB's schema doesn't prevent this (e.g. a re-fetch or a correction).
+        connection.execute(
+            "INSERT INTO fundamentals "
+            "(ticker, date, pe_ratio, eps, market_cap, revenue, net_income, total_assets) "
+            "VALUES ('AAPL', '2024-01-02', 30.0, 6.5, 2900000000, 4, 5, 6)"
+        )
+
+    result = load_stockstreamdb(db_path, include_fundamentals=True)
+
+    # No row duplication: a naive many-to-many merge would produce 4 rows, not 3.
+    assert len(result) == 3
+    aapl_day2 = result[(result["ticker"] == "AAPL") & (result["date"] == "2024-01-02")]
+    assert len(aapl_day2) == 1
+    assert aapl_day2.iloc[0]["pe_ratio"] == 30.0
+
+
+def test_load_stockstreamdb_ticker_filter_also_restricts_fundamentals_and_sentiment(tmp_path):
+    from smartanalyticsinvest.data_sources import load_stockstreamdb
+
+    db_path = tmp_path / "stockstream.db"
+    _build_stockstreamdb_fixture(db_path)
+    with sqlite3.connect(db_path) as connection:
+        connection.execute(
+            "INSERT INTO fundamentals "
+            "(ticker, date, pe_ratio, eps, market_cap, revenue, net_income, total_assets) "
+            "VALUES ('MSFT', '2024-01-01', 35.0, 9.0, 2500000000, 7, 8, 9)"
+        )
+
+    result = load_stockstreamdb(
+        db_path, tickers=["MSFT"], include_fundamentals=True, include_sentiment=True
+    )
+
+    assert result["ticker"].unique().tolist() == ["MSFT"]
+    assert result.iloc[0]["pe_ratio"] == 35.0
+
+
 def test_load_stockstreamdb_joins_macro_indicators_with_asof_backward_fill(tmp_path):
     from smartanalyticsinvest.data_sources import load_stockstreamdb
 

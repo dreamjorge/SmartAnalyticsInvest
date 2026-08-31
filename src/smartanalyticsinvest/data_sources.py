@@ -17,12 +17,14 @@ _REQUIRED_COLUMN_SET = set(REQUIRED_OHLCV_COLUMNS)
 
 _STOCKSTREAMDB_PRICE_QUERY = "SELECT ticker, date, open, high, low, close, volume FROM stock_prices"
 _STOCKSTREAMDB_FUNDAMENTALS_QUERY = (
-    "SELECT ticker, date, pe_ratio, eps, market_cap, revenue, net_income, total_assets "
-    "FROM fundamentals"
+    "SELECT f.ticker, f.date, f.pe_ratio, f.eps, f.market_cap, f.revenue, f.net_income, "
+    "f.total_assets FROM fundamentals f INNER JOIN (SELECT ticker, date, "
+    "MAX(fundamental_id) AS max_id FROM fundamentals{ticker_filter} GROUP BY ticker, date) "
+    "latest ON f.fundamental_id = latest.max_id"
 )
 _STOCKSTREAMDB_SENTIMENT_QUERY = (
     "SELECT ticker, date, AVG(sentiment_score) AS sentiment_score "
-    "FROM sentiment_analysis GROUP BY ticker, date"
+    "FROM sentiment_analysis{ticker_filter} GROUP BY ticker, date"
 )
 _STOCKSTREAMDB_MACRO_QUERY = "SELECT series_id, date, value FROM macro_indicators"
 
@@ -157,6 +159,42 @@ def fetch_yahoo_ohlcv_many(
     return result
 
 
+def _read_price_frame(
+    connection: sqlite3.Connection, tickers: list[str] | tuple[str, ...] | None
+) -> pd.DataFrame:
+    if tickers is None:
+        return pd.read_sql_query(_STOCKSTREAMDB_PRICE_QUERY, connection, parse_dates=["date"])
+    placeholders = ", ".join("?" for _ in tickers)
+    query = f"{_STOCKSTREAMDB_PRICE_QUERY} WHERE ticker IN ({placeholders})"
+    return pd.read_sql_query(query, connection, params=list(tickers), parse_dates=["date"])
+
+
+def _read_fundamentals_frame(
+    connection: sqlite3.Connection, tickers: list[str] | tuple[str, ...] | None
+) -> pd.DataFrame:
+    if tickers is None:
+        query = _STOCKSTREAMDB_FUNDAMENTALS_QUERY.format(ticker_filter="")
+        return pd.read_sql_query(query, connection, parse_dates=["date"])
+    placeholders = ", ".join("?" for _ in tickers)
+    query = _STOCKSTREAMDB_FUNDAMENTALS_QUERY.format(
+        ticker_filter=f" WHERE ticker IN ({placeholders})"
+    )
+    return pd.read_sql_query(query, connection, params=list(tickers), parse_dates=["date"])
+
+
+def _read_sentiment_frame(
+    connection: sqlite3.Connection, tickers: list[str] | tuple[str, ...] | None
+) -> pd.DataFrame:
+    if tickers is None:
+        query = _STOCKSTREAMDB_SENTIMENT_QUERY.format(ticker_filter="")
+        return pd.read_sql_query(query, connection, parse_dates=["date"])
+    placeholders = ", ".join("?" for _ in tickers)
+    query = _STOCKSTREAMDB_SENTIMENT_QUERY.format(
+        ticker_filter=f" WHERE ticker IN ({placeholders})"
+    )
+    return pd.read_sql_query(query, connection, params=list(tickers), parse_dates=["date"])
+
+
 def _join_macro_indicators(
     frame: pd.DataFrame,
     connection: sqlite3.Connection,
@@ -225,24 +263,17 @@ def load_stockstreamdb(
 
     try:
         with sqlite3.connect(str(db_file)) as connection:
-            frame = pd.read_sql_query(_STOCKSTREAMDB_PRICE_QUERY, connection, parse_dates=["date"])
-
-            if tickers is not None:
-                frame = frame[frame["ticker"].isin(tickers)]
+            frame = _read_price_frame(connection, tickers)
 
             if frame.empty:
                 raise DataSourceError(f"No OHLCV data returned from {db_file}")
 
             if include_fundamentals:
-                fundamentals = pd.read_sql_query(
-                    _STOCKSTREAMDB_FUNDAMENTALS_QUERY, connection, parse_dates=["date"]
-                )
+                fundamentals = _read_fundamentals_frame(connection, tickers)
                 frame = frame.merge(fundamentals, on=["ticker", "date"], how="left")
 
             if include_sentiment:
-                sentiment = pd.read_sql_query(
-                    _STOCKSTREAMDB_SENTIMENT_QUERY, connection, parse_dates=["date"]
-                )
+                sentiment = _read_sentiment_frame(connection, tickers)
                 frame = frame.merge(sentiment, on=["ticker", "date"], how="left")
 
             if include_macro:
