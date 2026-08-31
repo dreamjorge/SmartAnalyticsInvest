@@ -82,7 +82,12 @@ def _find_output_collisions(
     # comparison would miss a real collision there.
     grouped: dict[str, tuple[Path, list[str]]] = {}
     for input_path, output_path in zip(input_paths, output_paths, strict=True):
-        normalized = unicodedata.normalize("NFC", str(output_path)).casefold()
+        # Canonical caseless matching per Unicode's recommendation: casefold() itself can
+        # produce text that isn't in normal form (e.g. some combining-mark sequences), so
+        # normalize both before AND after folding, not just before.
+        normalized = unicodedata.normalize(
+            "NFD", unicodedata.normalize("NFD", str(output_path)).casefold()
+        )
         if normalized not in grouped:
             grouped[normalized] = (output_path, [])
         grouped[normalized][1].append(input_path)
