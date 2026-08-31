@@ -1,4 +1,5 @@
 import sys
+import unicodedata
 
 import pandas as pd
 import pytest
@@ -478,6 +479,32 @@ def test_cli_main_batch_mode_rejects_case_insensitive_colliding_output_names(tmp
     assert "multiple inputs would overwrite the same output file" in captured.err.lower()
     assert not (output_dir / "prices.csv").exists()
     assert not (output_dir / "Prices.csv").exists()
+
+
+def test_cli_main_batch_mode_rejects_unicode_normalization_colliding_output_names(tmp_path, capsys):
+    # A single precomposed "e-with-acute" (NFC, "\u00e9") vs. plain "e" followed by a
+    # combining acute accent (NFD, "e\u0301") -- canonically equivalent, and treated
+    # as the same file on normalization-insensitive filesystems such as default
+    # macOS APFS.
+    precomposed_stem = "caf\u00e9"
+    decomposed_stem = "cafe\u0301"
+    assert precomposed_stem != decomposed_stem
+    assert unicodedata.normalize("NFC", decomposed_stem) == precomposed_stem
+    region_a = tmp_path / "region-a"
+    region_b = tmp_path / "region-b"
+    region_a.mkdir()
+    region_b.mkdir()
+    input_a = region_a / f"{precomposed_stem}.csv"
+    input_b = region_b / f"{decomposed_stem}.csv"
+    output_dir = tmp_path / "enriched"
+    _write_valid_csv(input_a)
+    _write_valid_csv(input_b)
+
+    exit_code = main([str(input_a), str(input_b), "--output", str(output_dir)])
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "multiple inputs would overwrite the same output file" in captured.err.lower()
 
 
 def test_cli_main_batch_mode_continues_past_unreadable_input(tmp_path, capsys):

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import glob
 import sys
+import unicodedata
 from pathlib import Path
 from typing import Any
 
@@ -75,12 +76,13 @@ def _process_one(
 def _find_output_collisions(
     input_paths: list[str], output_paths: list[Path]
 ) -> dict[Path, list[str]]:
-    # Compare case-insensitively: many common filesystems (default macOS, Windows) treat
-    # paths differing only by case as the same file, so an exact-match comparison would
-    # miss a real collision there.
+    # Compare case- and Unicode-normalization-insensitively: common filesystems (default
+    # macOS, Windows) treat paths differing only by case or Unicode composition (e.g.
+    # precomposed vs. decomposed accented characters) as the same file, so an exact-match
+    # comparison would miss a real collision there.
     grouped: dict[str, tuple[Path, list[str]]] = {}
     for input_path, output_path in zip(input_paths, output_paths, strict=True):
-        normalized = str(output_path).casefold()
+        normalized = unicodedata.normalize("NFC", str(output_path)).casefold()
         if normalized not in grouped:
             grouped[normalized] = (output_path, [])
         grouped[normalized][1].append(input_path)
