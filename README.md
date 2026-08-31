@@ -120,7 +120,7 @@ FRED's observation date for series like CPI, GDP, or unemployment is the start o
 raw = load_stockstreamdb("stockstreamdb.db", include_macro=True, macro_publication_lag_days=30)
 ```
 
-This defaults to `0` for backward compatibility, which is only safe for series published same-day; for training use cases, pass an explicit lag appropriate to your series.
+This defaults to `0` for backward compatibility, which is only safe for series published same-day; for training use cases, pass an explicit lag appropriate to your series. `macro_publication_lag_days` must be a non-negative integer; a negative value is rejected since it would shift observations earlier and worsen leakage rather than prevent it.
 
 ## Input CSV schema
 
@@ -235,7 +235,7 @@ smartanalyticsinvest "data/*.csv" --output enriched/
 
 The output directory is created if it doesn't exist. Each file is processed independently and a bad file doesn't abort the batch: failures (including unreadable inputs, e.g. permission errors) are reported per file, a `Processed N/M input files successfully` summary is printed, and the exit code is non-zero if any file failed. Single-input invocations are unaffected and keep writing directly to `--output` as a file.
 
-If two inputs would map to the same output filename (e.g. `region-a/prices.csv` and `region-b/prices.csv` both stem to `prices.csv`), the batch is rejected upfront with an error naming the colliding inputs, before any file is written — nothing is silently overwritten.
+If two inputs would map to the same output filename (e.g. `region-a/prices.csv` and `region-b/prices.csv` both stem to `prices.csv`), the batch is rejected upfront with an error naming the colliding inputs, before any file is written — nothing is silently overwritten. This comparison is case-insensitive (e.g. `prices.csv` and `Prices.csv` also collide), matching the default behavior of common filesystems such as macOS and Windows.
 
 ## Smoke example
 

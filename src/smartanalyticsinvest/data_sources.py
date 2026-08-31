@@ -195,12 +195,21 @@ def _read_sentiment_frame(
     return pd.read_sql_query(query, connection, params=list(tickers), parse_dates=["date"])
 
 
+def _validate_publication_lag_days(publication_lag_days: int) -> int:
+    if isinstance(publication_lag_days, bool) or not isinstance(publication_lag_days, int):
+        raise ValueError("macro_publication_lag_days must be a non-negative integer")
+    if publication_lag_days < 0:
+        raise ValueError("macro_publication_lag_days must be a non-negative integer")
+    return publication_lag_days
+
+
 def _join_macro_indicators(
     frame: pd.DataFrame,
     connection: sqlite3.Connection,
     macro_series: list[str] | tuple[str, ...] | None,
     publication_lag_days: int,
 ) -> pd.DataFrame:
+    valid_publication_lag_days = _validate_publication_lag_days(publication_lag_days)
     query = _STOCKSTREAMDB_MACRO_QUERY
     if macro_series is None:
         macro = pd.read_sql_query(query, connection, parse_dates=["date"])
@@ -220,8 +229,8 @@ def _join_macro_indicators(
         .reset_index()
     )
     pivoted.columns = ["date"] + [f"macro_{column}" for column in pivoted.columns[1:]]
-    if publication_lag_days:
-        pivoted["date"] = pivoted["date"] + pd.Timedelta(days=publication_lag_days)
+    if valid_publication_lag_days:
+        pivoted["date"] = pivoted["date"] + pd.Timedelta(days=valid_publication_lag_days)
 
     merged = pd.merge_asof(
         frame.sort_values("date"), pivoted.sort_values("date"), on="date", direction="backward"
