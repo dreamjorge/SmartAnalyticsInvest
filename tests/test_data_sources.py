@@ -436,6 +436,28 @@ def test_load_stockstreamdb_joins_macro_indicators_with_asof_backward_fill(tmp_p
     assert msft_day1["macro_UNRATE"] == pytest.approx(3.7)
 
 
+def test_load_stockstreamdb_macro_publication_lag_delays_availability(tmp_path):
+    from smartanalyticsinvest.data_sources import load_stockstreamdb
+
+    db_path = tmp_path / "stockstream.db"
+    _build_stockstreamdb_fixture(db_path)
+
+    result = load_stockstreamdb(db_path, include_macro=True, macro_publication_lag_days=3)
+
+    aapl_day1 = result[(result["ticker"] == "AAPL") & (result["date"] == "2024-01-01")].iloc[0]
+    aapl_day2 = result[(result["ticker"] == "AAPL") & (result["date"] == "2024-01-02")].iloc[0]
+
+    # FEDFUNDS's 2023-12-15 observation is only "available" from 2023-12-18 onward,
+    # so it still covers both rows; the 2024-01-02 observation isn't available until
+    # 2024-01-05, so day 2 doesn't see it yet (no leakage from the same-day release).
+    assert aapl_day1["macro_FEDFUNDS"] == pytest.approx(5.25)
+    assert aapl_day2["macro_FEDFUNDS"] == pytest.approx(5.25)
+    # UNRATE's only observation (2024-01-01) isn't "available" until 2024-01-04,
+    # so neither row (dated before that) should see it yet.
+    assert pd.isna(aapl_day1["macro_UNRATE"])
+    assert pd.isna(aapl_day2["macro_UNRATE"])
+
+
 def test_load_stockstreamdb_filters_macro_series(tmp_path):
     from smartanalyticsinvest.data_sources import load_stockstreamdb
 

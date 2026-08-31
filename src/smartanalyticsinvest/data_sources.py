@@ -199,6 +199,7 @@ def _join_macro_indicators(
     frame: pd.DataFrame,
     connection: sqlite3.Connection,
     macro_series: list[str] | tuple[str, ...] | None,
+    publication_lag_days: int,
 ) -> pd.DataFrame:
     query = _STOCKSTREAMDB_MACRO_QUERY
     if macro_series is None:
@@ -219,6 +220,8 @@ def _join_macro_indicators(
         .reset_index()
     )
     pivoted.columns = ["date"] + [f"macro_{column}" for column in pivoted.columns[1:]]
+    if publication_lag_days:
+        pivoted["date"] = pivoted["date"] + pd.Timedelta(days=publication_lag_days)
 
     merged = pd.merge_asof(
         frame.sort_values("date"), pivoted.sort_values("date"), on="date", direction="backward"
@@ -234,6 +237,7 @@ def load_stockstreamdb(
     include_sentiment: bool = False,
     include_macro: bool = False,
     macro_series: list[str] | tuple[str, ...] | None = None,
+    macro_publication_lag_days: int = 0,
 ) -> pd.DataFrame:
     """Load canonical OHLCV rows from a StockStreamDB SQLite database.
 
@@ -255,6 +259,18 @@ def load_stockstreamdb(
     observation as of each row's date (``pd.merge_asof``, backward direction) — macro
     series are typically lower-frequency than daily prices and don't need exact date
     alignment. Pass ``macro_series`` to restrict to specific FRED series IDs.
+
+    FRED's ``date`` for a series such as CPI, GDP, or unemployment is the start of the
+    reporting period, not the day the data was actually published — releases commonly
+    lag the observation date by two to six weeks (and are sometimes later revised).
+    Joining on the raw observation date therefore leaks future information into any
+    row dated before the real publication date. Pass ``macro_publication_lag_days``
+    (e.g. ``30``) to shift each series' observation dates forward by a conservative
+    number of days before joining, so a value only becomes visible on/after the date
+    it would plausibly have been available. This defaults to ``0`` for backward
+    compatibility, but ``0`` is only safe for series published same-day (e.g. most
+    market/rate series); for anything with real-world publication lag, callers doing
+    model training should pass an explicit lag.
     """
 
     db_file = Path(db_path)
@@ -277,7 +293,9 @@ def load_stockstreamdb(
                 frame = frame.merge(sentiment, on=["ticker", "date"], how="left")
 
             if include_macro:
-                frame = _join_macro_indicators(frame, connection, macro_series)
+                frame = _join_macro_indicators(
+                    frame, connection, macro_series, macro_publication_lag_days
+                )
     except (sqlite3.DatabaseError, pd.errors.DatabaseError) as exc:
         raise DataSourceError(f"Could not read StockStreamDB database {db_file}: {exc}") from exc
 
